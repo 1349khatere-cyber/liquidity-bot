@@ -1,0 +1,10 @@
+{
+  "name": "liquidity-bot",
+  "version": "1.0.0",
+  "description": "Liquidity Hunter Bot on Vercel",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "@upstash/redis": "^1.31.3"
+  }
+}
