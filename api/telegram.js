@@ -90,9 +90,8 @@ async function handleTelegramUpdate(env, update) {
   if (cmd === "/check") {
     await sendTelegram(env, "⏳ در حال بررسی... (لطفا صبر کنید)");
     try {
-      const protocol = process.env.VERCEL_ENV === 'production' ? 'https' : 'http';
-      const host = process.env.VERCEL_URL || 'localhost:3000';
-      const url = `${protocol}://${host}/api/run`;
+      // استفاده از آدرس اصلی و قطعی پروژه در Vercel
+      const url = 'https://liquidity-bot-khaki.vercel.app/api/run';
       
       const res = await fetch(url, {
         method: 'POST',
