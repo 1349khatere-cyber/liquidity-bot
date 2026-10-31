@@ -9,4 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call Vercel
-        run: curl -s -H "x-api-key: ${{ secrets.API_SECRET }}" https://liquidity-bot-khaki.vercel.app/api/run
+        run: |
+          curl -s -H 'x-api-key: ${{ secrets.API_SECRET }}' https://liquidity-bot-khaki.vercel.app/api/run
