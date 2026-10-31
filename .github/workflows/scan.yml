@@ -1,4 +1,4 @@
-name: Trigger Vercel Scan
+name: Scan Market
 on:
   schedule:
     - cron: '*/5 * * * *'
@@ -8,5 +8,5 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Curl scan endpoint
+      - name: Call Vercel
         run: curl -s -H "x-api-key: ${{ secrets.API_SECRET }}" https://liquidity-bot-khaki.vercel.app/api/run
