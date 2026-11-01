@@ -9,7 +9,7 @@ const redis = new Redis({
 const BASE = "https://api.toobit.com";
 const SYMBOLS = ["SOL-SWAP-USDT", "XRP-SWAP-USDT", "ADA-SWAP-USDT", "LINK-SWAP-USDT", "AVAX-SWAP-USDT"];
 const INTERVAL = "15m";
-const LIMIT = 200;
+const LIMIT = 300; // افزایش به 300 برای محاسبات دقیق‌تر
 
 function intervalMs(tf) {
   return { "1m": 60e3, "5m": 300e3, "15m": 900e3, "1h": 3600e3, "4h": 14400e3 }[tf] || 900e3;
@@ -64,9 +64,24 @@ function rsi(closes, period = 14) {
   return r;
 }
 
+// محاسبه ATR
+function calcATR(candles, period = 14) {
+  if (candles.length < period + 1) return 0;
+  let sum = 0;
+  for (let i = candles.length - period; i < candles.length; i++) {
+    const tr = Math.max(
+      candles[i].h - candles[i].l,
+      Math.abs(candles[i].h - candles[i-1].c),
+      Math.abs(candles[i].l - candles[i-1].c)
+    );
+    sum += tr;
+  }
+  return sum / period;
+}
+
 async function getMarketStatus(symbol) {
   const candles = await fetchKlines(symbol, INTERVAL, LIMIT);
-  if (candles.length < 100) return null;
+  if (candles.length < 200) return null;
 
   const closes = candles.map(c => c.c);
   const price = closes[closes.length - 1];
@@ -76,44 +91,59 @@ async function getMarketStatus(symbol) {
   const ema50 = ema(closes, 50);
   const ema200 = ema(closes, 200);
   const rsiVal = rsi(closes, 14);
+  const atr = calcATR(candles, 14);
   
   const vols = candles.map(c => c.v);
   const volMA20 = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
   const volRatio = volMA20 > 0 ? currentCandle.v / volMA20 : 1;
 
-  let structure = "بدون سطح واضح";
-  const recentHighs = candles.slice(-20).map(c => c.h);
-  const recentLows = candles.slice(-20).map(c => c.l);
-  const maxHigh = Math.max(...recentHighs);
-  const minLow = Math.min(...recentLows);
+  // پیدا کردن سطوح کلیدی (30 کندل اخیر)
+  const lookback = 30;
+  const recentCandles = candles.slice(-lookback);
+  const recentHigh = Math.max(...recentCandles.map(c => c.h));
+  const recentLow = Math.min(...recentCandles.map(c => c.l));
+
+  // تشخیص ساختار بر اساس فاصله با ATR
+  let structure = "میانه رنج";
   
-  if (Math.abs(price - maxHigh) / maxHigh < 0.01) structure = "نزدیک مقاومت";
-  else if (Math.abs(price - minLow) / minLow < 0.01) structure = "نزدیک حمایت";
-  else if (Math.abs(price - ema20) / ema20 < 0.005) structure = "پولبک به EMA20";
+  if (recentHigh - price < atr * 1.5 && price < recentHigh) {
+    structure = "نزدیک مقاومت";
+  } else if (price - recentLow < atr * 1.5 && price > recentLow) {
+    structure = "نزدیک حمایت";
+  } else if (Math.abs(price - ema20) < atr * 0.5) {
+    structure = "پولبک به EMA20";
+  }
 
-  let confirmation = "بدون تایید";
-  if (volRatio > 1.5) confirmation = "🟢 کندل قوی + حجم زیاد";
-  else if (volRatio > 1.1) confirmation = "🟡 کندل متوسط + حجم متوسط";
+  // تایید کندلی
+  let confirmation = "بدون تایید قوی";
+  if (volRatio > 1.5 && Math.abs(currentCandle.c - currentCandle.o) > atr * 0.5) {
+    confirmation = "🟢 کندل قوی + حجم زیاد";
+  } else if (volRatio > 1.1) {
+    confirmation = "🟡 حجم متوسط";
+  }
 
+  // روند
   let trend = "neutral";
   if (ema20 > ema50 && price > ema200) trend = "bull";
   else if (ema20 < ema50 && price < ema200) trend = "bear";
 
+  // وضعیت نهایی
   let status = "انتظار";
   let reason = "شرایط ایده‌آل نیست";
   
-  if (trend === "bull" && structure === "نزدیک حمایت" && rsiVal < 40) {
+  if (trend === "bull" && structure === "نزدیک حمایت" && rsiVal < 45) {
     status = "🟢 آماده خرید";
     reason = "روند صعودی + برخورد به حمایت + RSI پایین";
-  } else if (trend === "bear" && structure === "نزدیک مقاومت" && rsiVal > 60) {
+  } else if (trend === "bear" && structure === "نزدیک مقاومت" && rsiVal > 55) {
     status = "🔴 آماده فروش";
     reason = "روند نزولی + برخورد به مقاومت + RSI بالا";
+  } else if (trend === "bear" && structure === "نزدیک حمایت") {
+    status = "⚠️ شکست احتمالی حمایت";
+    reason = "روند نزولی + نزدیک شدن به حمایت (مراقب باشید)";
   }
 
   let timeEstimate = "نامشخص";
-  if (status !== "انتظار") {
-    timeEstimate = "۲ تا ۵ کندل";
-  }
+  if (status !== "انتظار") timeEstimate = "۲ تا ۶ کندل";
 
   const aiConsensus = trend === "bull" ? "🟢 ۲/۳ خرید" : trend === "bear" ? "🔴 ۲/۳ فروش" : "⚪ خنثی";
   const whaleActivity = volRatio > 1.3 ? "🐋 فعالیت بالا" : "⚪ عادی";
