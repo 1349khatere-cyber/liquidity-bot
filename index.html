@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquidity Hunter Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+        body { font-family: 'Vazirmatn', sans-serif; background-color: #0f172a; color: #f8fafc; }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-400">Liquidity Hunter Dashboard</h1>
+            <div class="flex items-center gap-4">
+                <span id="status-badge" class="px-4 py-2 rounded-full bg-gray-700 text-sm">در حال اتصال...</span>
+                <button onclick="fetchData()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition">بروزرسانی</button>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700">
+            <div class="p-6 border-b border-gray-700">
+                <h2 class="text-xl font-bold">وضعیت لحظه‌ای بازار (تایم 15 دقیقه)</h2>
+                <p class="text-gray-400 text-sm mt-1">اطلاعات هر ۳۰ ثانیه به‌روزرسانی می‌شود.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-sm">
+                    <thead class="bg-gray-900 text-gray-400">
+                        <tr>
+                            <th class="px-6 py-4">نماد</th>
+                            <th class="px-6 py-4">قیمت</th>
+                            <th class="px-6 py-4">روند</th>
+                            <th class="px-6 py-4">ساختار</th>
+                            <th class="px-6 py-4">تایید کندل/حجم</th>
+                            <th class="px-6 py-4">RSI</th>
+                            <th class="px-6 py-4">اجماع AI</th>
+                            <th class="px-6 py-4">نهنگ‌ها</th>
+                            <th class="px-6 py-4">وضعیت</th>
+                            <th class="px-6 py-4">زمان تقریبی</th>
+                            <th class="px-6 py-4">دلیل</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-gray-700">
+                        <!-- داده‌ها اینجا قرار می‌گیرند -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://liquidity-bot-khaki.vercel.app/api/market-status';
+
+        async function fetchData() {
+            try {
+                const res = await fetch(API_URL);
+                const json = await res.json();
+                
+                if (json.ok) {
+                    renderTable(json.data);
+                    document.getElementById('status-badge').className = 'px-4 py-2 rounded-full bg-green-900 text-green-300 text-sm';
+                    document.getElementById('status-badge').innerText = 'متصل به سرور';
+                } else {
+                    throw new Error(json.error);
+                }
+            } catch (e) {
+                document.getElementById('status-badge').className = 'px-4 py-2 rounded-full bg-red-900 text-red-300 text-sm';
+                document.getElementById('status-badge').innerText = 'خطا در اتصال';
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                // رنگ‌بندی وضعیت
+                let statusColor = 'bg-gray-700 text-gray-300';
+                if (item.status.includes('خرید')) statusColor = 'bg-green-900 text-green-300';
+                else if (item.status.includes('فروش')) statusColor = 'bg-red-900 text-red-300';
+                else if (item.status.includes('انتظار')) statusColor = 'bg-yellow-900 text-yellow-300';
+
+                // رنگ‌بندی روند
+                let trendIcon = '🟡';
+                if (item.trend === 'bull') trendIcon = '🟢 صعودی';
+                else if (item.trend === 'bear') trendIcon = '🔴 نزولی';
+
+                const row = `
+                    <tr class="hover:bg-gray-750 transition">
+                        <td class="px-6 py-4 font-bold">${item.symbol}</td>
+                        <td class="px-6 py-4 font-mono">${item.price}</td>
+                        <td class="px-6 py-4">${trendIcon}</td>
+                        <td class="px-6 py-4 text-gray-300">${item.structure}</td>
+                        <td class="px-6 py-4">${item.confirmation}</td>
+                        <td class="px-6 py-4">${item.rsi}</td>
+                        <td class="px-6 py-4">${item.aiConsensus}</td>
+                        <td class="px-6 py-4">${item.whaleActivity}</td>
+                        <td class="px-6 py-4"><span class="px-3 py-1 rounded-full text-xs font-bold ${statusColor}">${item.status}</span></td>
+                        <td class="px-6 py-4 text-gray-400">${item.timeEstimate}</td>
+                        <td class="px-6 py-4 text-gray-400 text-xs">${item.reason}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        // اجرای اولیه
+        fetchData();
+        // آپدیت خودکار هر 30 ثانیه
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+</html>
