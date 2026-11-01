@@ -80,14 +80,53 @@ async function getMarketStatus(symbol) {
   const recentHigh = Math.max(...recentCandles.map(c => c.h));
   const recentLow = Math.min(...recentCandles.map(c => c.l));
 
-  // منطق جدید: تشخیص دقیق شکست یا برگشت
-  let structure = "میانه رنج";
-  if (price <= recentLow + atr * 0.5) {
-      if (currentCandle.c < recentLow && currentCandle.o > recentLow) structure = "🔴 شکست حمایت (Breakdown)";
-      else structure = "🟢 برگشت از حمایت (Bounce)";
-  } else if (price >= recentHigh - atr * 0.5) {
-      if (currentCandle.c > recentHigh && currentCandle.o < recentHigh) structure = "🟢 شکست مقاومت (Breakout)";
-      else structure = "🔴 برگشت از مقاومت (Rejection)";
+  // منطق دقیق تشخیص ساختار و تایید کندلی
+  let structure = "میانه رنج (در حال نوسان)";
+  let status = "انتظار";
+  let reason = "شرایط ایده‌آل نیست";
+  let timeEstimate = "نامشخص";
+
+  // بررسی وضعیت نزدیک حمایت
+  if (price <= recentLow + (atr * 0.5)) {
+      const isGreenCandle = currentCandle.c > currentCandle.o;
+      const isBreaking = currentCandle.c < recentLow;
+
+      if (isBreaking && !isGreenCandle) {
+          structure = "🔴 شکست حمایت";
+          status = "🔴 فروش (ادامه روند نزولی)";
+          reason = "کندل نزولی زیر سطح حمایت بسته شده است";
+          timeEstimate = "۲ تا ۴ کندل";
+      } else if (!isBreaking && isGreenCandle) {
+          structure = "🟢 برگشت از حمایت";
+          status = "🟢 آماده خرید";
+          reason = "کندل صعودی روی حمایت شکل گرفته است";
+          timeEstimate = "۳ تا ۵ کندل";
+      } else {
+          structure = "⏳ تست حمایت (بدون تایید)";
+          status = "انتظار برای تایید کندل";
+          reason = "قیمت روی حمایت است اما کندل هنوز تاییدیه برگشت نداده است";
+      }
+  } 
+  // بررسی وضعیت نزدیک مقاومت
+  else if (price >= recentHigh - (atr * 0.5)) {
+      const isRedCandle = currentCandle.c < currentCandle.o;
+      const isBreaking = currentCandle.c > recentHigh;
+
+      if (isBreaking && !isRedCandle) {
+          structure = "🟢 شکست مقاومت";
+          status = "🟢 خرید (ادامه روند صعودی)";
+          reason = "کندل صعودی بالای سطح مقاومت بسته شده است";
+          timeEstimate = "۲ تا ۴ کندل";
+      } else if (!isBreaking && isRedCandle) {
+          structure = "🔴 برگشت از مقاومت";
+          status = "🔴 آماده فروش";
+          reason = "کندل نزولی روی مقاومت شکل گرفته است";
+          timeEstimate = "۳ تا ۵ کندل";
+      } else {
+          structure = "⏳ تست مقاومت (بدون تایید)";
+          status = "انتظار برای تایید کندل";
+          reason = "قیمت روی مقاومت است اما کندل هنوز تاییدیه رد شدن نداده است";
+      }
   }
 
   let confirmation = "بدون تایید قوی";
@@ -98,24 +137,22 @@ async function getMarketStatus(symbol) {
   if (ema20 > ema50 && price > ema200) trend = "bull";
   else if (ema20 < ema50 && price < ema200) trend = "bear";
 
-  let status = "انتظار";
-  let reason = "شرایط ایده‌آل نیست";
-  
-  if (structure.includes("برگشت از حمایت") && rsiVal < 45) {
-    status = "🟢 آماده خرید"; reason = "برگشت از حمایت + RSI پایین";
-  } else if (structure.includes("برگشت از مقاومت") && rsiVal > 55) {
-    status = "🔴 آماده فروش"; reason = "برگشت از مقاومت + RSI بالا";
-  } else if (structure.includes("شکست حمایت") && volRatio > 1.2) {
-    status = "🔴 فروش (شکست)"; reason = "شکست حمایت با حجم";
-  } else if (structure.includes("شکست مقاومت") && volRatio > 1.2) {
-    status = "🟢 خرید (شکست)"; reason = "شکست مقاومت با حجم";
-  }
-
-  let timeEstimate = status !== "انتظار" ? "۲ تا ۵ کندل" : "نامشخص";
   const aiConsensus = trend === "bull" ? "🟢 ۲/۳ خرید" : trend === "bear" ? "🔴 ۲/۳ فروش" : "⚪ خنثی";
   const whaleActivity = volRatio > 1.3 ? "🐋 فعالیت بالا" : "⚪ عادی";
 
-  return { symbol: symbol.split('-')[0], price: Number(price.toFixed(4)), trend, structure, confirmation, rsi: Number.isFinite(rsiVal) ? Number(rsiVal.toFixed(1)) : 0, aiConsensus, whaleActivity, status, timeEstimate, reason };
+  return { 
+    symbol: symbol.split('-')[0], 
+    price: Number(price.toFixed(4)), 
+    trend, 
+    structure, 
+    confirmation, 
+    rsi: Number.isFinite(rsiVal) ? Number(rsiVal.toFixed(1)) : 0, 
+    aiConsensus, 
+    whaleActivity, 
+    status, 
+    timeEstimate, 
+    reason 
+  };
 }
 
 export default async function handler(req, res) {
