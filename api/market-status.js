@@ -201,11 +201,34 @@ export default async function handler(req, res) {
     const results = await Promise.all(SYMBOLS.map(getMarketStatus));
     const valid = results.filter(Boolean);
 
-    let topPick = valid.find(r => r.status.includes('فرصت')) || valid[0];
-    let strongFlow = valid.find(r => r.advanced.takerRatio > 60 || r.advanced.takerRatio < 40);
+    // 🟢 اصلاح ۱: پیدا کردن بهترین فرصت
+    let topPick = valid.find(r => r.status.includes('فرصت'));
+    if (!topPick) {
+        // اگر هیچ ارزی آماده معامله نبود، ارزی که بیشترین ADX (قوی‌ترین روند) دارد را انتخاب کن
+        const sortedByAdx = [...valid].sort((a, b) => b.advanced.adx - a.advanced.adx);
+        topPick = sortedByAdx[0];
+    }
+
+    // 🟢 اصلاح ۲: پیدا کردن شدیدترین جریان سفارشات
+    // ارزی که نسبت Taker آن بیشترین فاصله را از ۵۰٪ دارد (یعنی یا خیلی خریدار داره یا خیلی فروشنده)
+    const sortedByTaker = [...valid].sort((a, b) => {
+        const devA = Math.abs(a.advanced.takerRatio - 50);
+        const devB = Math.abs(b.advanced.takerRatio - 50);
+        return devB - devA;
+    });
+    
+    let strongFlow = null;
+    // اگر شدت جریان از ۵٪ بیشتر بود (یعنی زیر ۴۵ یا بالای ۵۵)، آن را نشان بده
+    if (sortedByTaker.length > 0 && Math.abs(sortedByTaker[0].advanced.takerRatio - 50) > 5) {
+        strongFlow = sortedByTaker[0];
+    }
 
     const summary = {
-      topPick: topPick ? { symbol: topPick.symbol, status: topPick.status, reason: topPick.reason } : null,
+      topPick: topPick ? { 
+          symbol: topPick.symbol, 
+          status: topPick.status.includes('فرصت') ? topPick.status : "انتظار (قوی‌ترین روند)", 
+          reason: topPick.status.includes('فرصت') ? topPick.reason : `در رنج است اما بالاترین ADX (${topPick.advanced.adx}) را دارد`
+      } : null,
       flowAlert: strongFlow ? { symbol: strongFlow.symbol, ratio: strongFlow.advanced.takerRatio } : null,
       marketCondition: valid.filter(r => r.trend === 'bull').length >= 3 ? "روند صعودی قوی (Bullish)" : (valid.filter(r => r.trend === 'bear').length >= 3 ? "روند نزولی قوی (Bearish)" : "بازار خنثی/رِنج (Ranging)")
     };
