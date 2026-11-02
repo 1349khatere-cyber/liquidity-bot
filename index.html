@@ -3,106 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liquidity Hunter Dashboard</title>
+    <title>Liquidity Hunter — Pro Desk</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
-        body { font-family: 'Vazirmatn', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap');
+        body { font-family: 'Vazirmatn', sans-serif; background-color: #0b1120; color: #f8fafc; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glow-text { text-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
 </head>
-<body class="min-h-screen p-8">
-    <div class="max-w-7xl mx-auto space-y-6">
+<body class="min-h-screen p-6">
+    <div class="max-w-[1700px] mx-auto space-y-6">
         
-        <!-- Header -->
-        <div class="flex justify-between items-center">
-            <h1 class="text-3xl font-bold text-blue-400">Liquidity Hunter Dashboard</h1>
+        <!-- هدر -->
+        <div class="flex flex-col md:flex-row justify-between items-center glass-panel rounded-2xl p-5 shadow-2xl">
+            <div class="flex items-center gap-3 mb-4 md:mb-0">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-xl font-black">LH</div>
+                <div>
+                    <h1 class="text-2xl font-black text-white glow-text">میز معاملات حرفه‌ای Liquidity Hunter</h1>
+                    <p class="text-xs text-gray-400">موتور تصمیم‌گیری پیشرفته چندفاکتوری</p>
+                </div>
+            </div>
             <div class="flex items-center gap-4">
-                <span id="status-badge" class="px-4 py-2 rounded-full bg-gray-700 text-sm">در حال اتصال...</span>
-                <button onclick="fetchAllData()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition">بروزرسانی</button>
+                <span id="status-badge" class="px-4 py-2 rounded-xl bg-gray-800 text-sm font-medium border border-gray-700">در حال اتصال...</span>
+                <button onclick="fetchAllData()" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-xl text-sm font-bold transition shadow-lg shadow-blue-900/50">بروزرسانی زنده</button>
             </div>
         </div>
 
-        <!-- خلاصه وضعیت (Summary Cards) -->
-        <div id="summary-section" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- کارت ۱: بهترین فرصت -->
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg">
-                <h3 class="text-gray-400 text-sm mb-2">🎯 بهترین فرصت فعلی</h3>
-                <div id="summary-top-pick" class="text-xl font-bold">در حال محاسبه...</div>
+        <!-- کارت‌های خلاصه -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl"></div>
+                <h3 class="text-gray-400 text-sm font-bold mb-3 flex items-center gap-2">🎯 بهترین فرصت</h3>
+                <div id="summary-top" class="text-lg font-black">در حال محاسبه...</div>
             </div>
-            <!-- کارت ۲: هشدار نهنگ‌ها -->
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg">
-                <h3 class="text-gray-400 text-sm mb-2">🐋 رادار پول هوشمند</h3>
-                <div id="summary-whale" class="text-xl font-bold">در حال محاسبه...</div>
+            <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl"></div>
+                <h3 class="text-gray-400 text-sm font-bold mb-3 flex items-center gap-2">⚡ رادار جریان سفارشات</h3>
+                <div id="summary-flow" class="text-lg font-black">در حال محاسبه...</div>
             </div>
-            <!-- کارت ۳: وضعیت کلی بازار -->
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg">
-                <h3 class="text-gray-400 text-sm mb-2">📊 وضعیت کلی بازار</h3>
-                <div id="summary-market" class="text-xl font-bold">در حال محاسبه...</div>
+            <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl"></div>
+                <h3 class="text-gray-400 text-sm font-bold mb-3 flex items-center gap-2">📊 رژیم کلی بازار</h3>
+                <div id="summary-market" class="text-lg font-black">در حال محاسبه...</div>
             </div>
         </div>
 
-        <!-- جدول وضعیت بازار -->
-        <div class="bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700">
-            <div class="p-6 border-b border-gray-700">
-                <h2 class="text-xl font-bold">وضعیت لحظه‌ای بازار (تایم 15 دقیقه)</h2>
+        <!-- جدول اصلی داده‌ها -->
+        <div class="glass-panel rounded-2xl shadow-2xl overflow-hidden border border-gray-700/50">
+            <div class="p-5 border-b border-gray-700/50 flex justify-between items-center">
+                <h2 class="text-lg font-bold">پایش لحظه‌ای بازار و سطوح کلیدی (15 دقیقه)</h2>
+                <span class="text-xs text-gray-400 bg-gray-800 px-3 py-1 rounded-lg">به‌روزرسانی خودکار: 30 ثانیه</span>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-right text-sm">
-                    <thead class="bg-gray-900 text-gray-400">
+                <table class="w-full text-right text-xs">
+                    <thead class="bg-gray-900/80 text-gray-400 uppercase tracking-wider font-bold">
                         <tr>
-                            <th class="px-6 py-4">نماد</th>
-                            <th class="px-6 py-4">قیمت</th>
-                            <th class="px-6 py-4">قدرت (Strength)</th>
-                            <th class="px-6 py-4">روند</th>
-                            <th class="px-6 py-4">ساختار</th>
-                            <th class="px-6 py-4">جریان سفارشات</th>
-                            <th class="px-6 py-4">واگرایی (CVD)</th>
-                            <th class="px-6 py-4">RSI</th>
-                            <th class="px-6 py-4">وضعیت</th>
-                            <th class="px-6 py-4">دلیل</th>
+                            <th class="px-4 py-4 sticky right-0 bg-gray-900/90 backdrop-blur">نماد / قیمت</th>
+                            <th class="px-4 py-4">موقعیت</th>
+                            <th class="px-4 py-4">همسویی تایم‌فریم</th>
+                            <th class="px-4 py-4">قدرت خریداران (Taker)</th>
+                            <th class="px-4 py-4">CVD (Net Flow)</th>
+                            <th class="px-4 py-4">فاندینگ / OI</th>
+                            <th class="px-4 py-4">POC / فاصله</th>
+                            <th class="px-4 py-4">نواحی لیکوییدیشن</th>
+                            <th class="px-4 py-4">ATR</th>
+                            <th class="px-4 py-4">وضعیت و دلیل</th>
                         </tr>
                     </thead>
-                    <tbody id="table-body" class="divide-y divide-gray-700"></tbody>
+                    <tbody id="table-body" class="divide-y divide-gray-800/50"></tbody>
                 </table>
             </div>
         </div>
-
     </div>
 
     <script>
-        const API_MARKET = 'https://liquidity-bot-khaki.vercel.app/api/market-status';
+        const API_URL = 'https://liquidity-bot-khaki.vercel.app/api/market-status';
 
         async function fetchAllData() {
-            document.getElementById('status-badge').innerText = 'در حال آپدیت...';
+            document.getElementById('status-badge').innerText = 'در حال بروزرسانی...';
+            document.getElementById('status-badge').className = 'px-4 py-2 rounded-xl bg-gray-700 text-sm font-medium border border-gray-600';
             try {
-                const res = await fetch(API_MARKET);
+                const res = await fetch(API_URL);
                 const json = await res.json();
                 if (json.ok) {
                     renderSummary(json.summary);
                     renderTable(json.data);
-                    document.getElementById('status-badge').className = 'px-4 py-2 rounded-full bg-green-900 text-green-300 text-sm';
-                    document.getElementById('status-badge').innerText = 'متصل';
+                    document.getElementById('status-badge').className = 'px-4 py-2 rounded-xl bg-emerald-900/50 text-emerald-300 text-sm font-bold border border-emerald-500/50';
+                    document.getElementById('status-badge').innerText = 'متصل (Live)';
                 }
             } catch (e) {
-                document.getElementById('status-badge').className = 'px-4 py-2 rounded-full bg-red-900 text-red-300 text-sm';
+                document.getElementById('status-badge').className = 'px-4 py-2 rounded-xl bg-red-900/50 text-red-300 text-sm font-bold border border-red-500/50';
                 document.getElementById('status-badge').innerText = 'خطا در اتصال';
             }
         }
 
         function renderSummary(summary) {
-            const topPickEl = document.getElementById('summary-top-pick');
+            const topEl = document.getElementById('summary-top');
             if (summary.topPick) {
-                let color = summary.topPick.status.includes('خرید') ? 'text-green-400' : (summary.topPick.status.includes('فروش') ? 'text-red-400' : 'text-yellow-400');
-                topPickEl.innerHTML = `<span class="${color}">${summary.topPick.symbol} - ${summary.topPick.status}</span><div class="text-xs text-gray-400 mt-1 font-normal">${summary.topPick.reason}</div>`;
-            } else {
-                topPickEl.innerText = "فرصت واضحی نیست";
+                let c = summary.topPick.status.includes('خرید') ? 'text-emerald-400' : (summary.topPick.status.includes('فروش') ? 'text-red-400' : 'text-amber-400');
+                topEl.innerHTML = `<span class="${c}">${summary.topPick.symbol} — ${summary.topPick.status}</span><div class="text-xs text-gray-400 mt-2 font-normal leading-relaxed">${summary.topPick.reason}</div>`;
             }
 
-            const whaleEl = document.getElementById('summary-whale');
-            if (summary.whaleAlert) {
-                whaleEl.innerHTML = `<span class="text-blue-400">${summary.whaleAlert.symbol}</span><div class="text-xs text-gray-400 mt-1 font-normal">${summary.whaleAlert.type}</div>`;
+            const flowEl = document.getElementById('summary-flow');
+            if (summary.flowAlert) {
+                flowEl.innerHTML = `<span class="text-purple-400">${summary.flowAlert.symbol}</span><div class="text-xs text-gray-400 mt-2 font-normal">سلطه تیکر: ${summary.flowAlert.ratio}%</div>`;
             } else {
-                whaleEl.innerText = "فعالیت خاصی دیده نمی‌شود";
+                flowEl.innerText = "جریان سفارشات نرمال است";
             }
 
             document.getElementById('summary-market').innerText = summary.marketCondition;
@@ -112,28 +121,55 @@
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
             data.forEach(item => {
-                let statusColor = 'bg-gray-700 text-gray-300';
-                if (item.status.includes('خرید')) statusColor = 'bg-green-900 text-green-300';
-                else if (item.status.includes('فروش')) statusColor = 'bg-red-900 text-red-300';
-                else if (item.status.includes('انتظار')) statusColor = 'bg-yellow-900 text-yellow-300';
+                const adv = item.advanced;
+                let statusClass = 'bg-gray-800 text-gray-300 border border-gray-700';
+                if (item.status.includes('خرید')) statusClass = 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/50';
+                else if (item.status.includes('فروش')) statusClass = 'bg-red-950/80 text-red-300 border border-red-700/50';
 
-                let trendIcon = item.trend === 'bull' ? '🟢 صعودی' : item.trend === 'bear' ? '🔴 نزولی' : '🟡 خنثی';
-                
-                // رنگ برای قدرت
-                let strengthColor = item.strength > 60 ? 'text-green-400' : item.strength < 40 ? 'text-red-400' : 'text-yellow-400';
+                const trendIcon = item.trend === 'bull' ? '🟢' : (item.trend === 'bear' ? '🔴' : '🟡');
+                const takerColor = adv.takerRatio > 55 ? 'text-emerald-400' : (adv.takerRatio < 45 ? 'text-red-400' : 'text-gray-300');
+                const fundingColor = parseFloat(adv.fundingRate) > 0.02 ? 'text-amber-400' : (parseFloat(adv.fundingRate) < 0 ? 'text-blue-400' : 'text-gray-400');
+                const pocDist = parseFloat(adv.distToPoc) > 0 ? `+${adv.distToPoc}` : adv.distToPoc;
 
                 tbody.innerHTML += `
-                    <tr class="hover:bg-gray-750 transition">
-                        <td class="px-6 py-4 font-bold">${item.symbol}</td>
-                        <td class="px-6 py-4 font-mono">${item.price}</td>
-                        <td class="px-6 py-4 font-bold ${strengthColor}">${item.strength}/100</td>
-                        <td class="px-6 py-4">${trendIcon}</td>
-                        <td class="px-6 py-4 text-gray-300">${item.structure}</td>
-                        <td class="px-6 py-4">${item.confirmation}</td>
-                        <td class="px-6 py-4 ${item.divergence.includes('⚠️') ? 'text-yellow-400 font-bold' : 'text-gray-400'}">${item.divergence}</td>
-                        <td class="px-6 py-4">${item.rsi}</td>
-                        <td class="px-6 py-4"><span class="px-3 py-1 rounded-full text-xs font-bold ${statusColor}">${item.status}</span></td>
-                        <td class="px-6 py-4 text-gray-400 text-xs">${item.reason}</td>
+                    <tr class="hover:bg-gray-800/40 transition group">
+                        <td class="px-4 py-4 sticky right-0 bg-gray-900/90 group-hover:bg-gray-800/90 backdrop-blur z-10">
+                            <div class="font-black text-white text-sm tracking-wide">${item.symbol}</div>
+                            <div class="font-mono text-xs text-blue-400 mt-1">${item.price}</div>
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="font-medium text-gray-200">${item.structure}</div>
+                            <div class="text-[10px] text-gray-500 mt-1">${trendIcon} روند 15m</div>
+                        </td>
+                        <td class="px-4 py-4 text-center">
+                            <div class="flex justify-center gap-2 text-lg">
+                                <span title="1H Trend">${adv.trend1h}</span>
+                                <span title="4H Trend">${adv.trend4h}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 font-mono font-bold ${takerColor}">
+                            ${adv.takerRatio}%
+                        </td>
+                        <td class="px-4 py-4 font-mono text-gray-400">
+                            ${adv.cvd > 0 ? '🟢 +' : '🔴 '}${adv.cvd}k
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="font-mono text-xs ${fundingColor}">FR: ${adv.fundingRate}</div>
+                            <div class="font-mono text-[10px] text-gray-500 mt-1">OI: ${adv.oiDelta}</div>
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="font-mono text-xs text-purple-300">${adv.poc}</div>
+                            <div class="text-[10px] text-gray-500">${pocDist}</div>
+                        </td>
+                        <td class="px-4 py-4">
+                            <div class="text-xs font-bold ${adv.liqZone.includes('لیکوییدیشن') ? 'text-amber-400' : 'text-gray-400'}">${adv.liqZone}</div>
+                            <div class="text-[10px] text-gray-500 mt-0.5">${adv.liqTarget}</div>
+                        </td>
+                        <td class="px-4 py-4 font-mono text-gray-500 text-xs">${adv.atr}</td>
+                        <td class="px-4 py-4 max-w-[200px]">
+                            <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${statusClass} inline-block mb-1">${item.status}</span>
+                            <div class="text-[10px] text-gray-400 leading-tight">${item.reason}</div>
+                        </td>
                     </tr>
                 `;
             });
