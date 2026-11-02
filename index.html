@@ -15,7 +15,7 @@
     </style>
 </head>
 <body class="min-h-screen p-6">
-    <div class="max-w-[1700px] mx-auto space-y-6">
+    <div class="max-w-[1900px] mx-auto space-y-6">
         
         <!-- هدر -->
         <div class="flex flex-col md:flex-row justify-between items-center glass-panel rounded-2xl p-5 shadow-2xl">
@@ -61,16 +61,18 @@
                 <table class="w-full text-right text-xs">
                     <thead class="bg-gray-900/80 text-gray-400 uppercase tracking-wider font-bold">
                         <tr>
-                            <th class="px-4 py-4 sticky right-0 bg-gray-900/90 backdrop-blur">نماد / قیمت</th>
-                            <th class="px-4 py-4">موقعیت</th>
-                            <th class="px-4 py-4">همسویی تایم‌فریم</th>
-                            <th class="px-4 py-4">قدرت خریداران (Taker)</th>
-                            <th class="px-4 py-4">CVD (Net Flow)</th>
-                            <th class="px-4 py-4">فاندینگ / OI</th>
-                            <th class="px-4 py-4">POC / فاصله</th>
-                            <th class="px-4 py-4">نواحی لیکوییدیشن</th>
-                            <th class="px-4 py-4">ATR</th>
-                            <th class="px-4 py-4">وضعیت و دلیل</th>
+                            <th class="px-3 py-4 sticky right-0 bg-gray-900/90 backdrop-blur">نماد / قیمت</th>
+                            <th class="px-3 py-4">موقعیت</th>
+                            <th class="px-3 py-4">همسویی</th>
+                            <th class="px-3 py-4">قدرت خریدار</th>
+                            <th class="px-3 py-4">ADX</th>
+                            <th class="px-3 py-4">OTE (فیبو)</th>
+                            <th class="px-3 py-4">اوردر بلاک</th>
+                            <th class="px-3 py-4">جریان سمی</th>
+                            <th class="px-3 py-4">POC / فاصله</th>
+                            <th class="px-3 py-4">لیکوییدیشن</th>
+                            <th class="px-3 py-4">ریسک کلی</th>
+                            <th class="px-3 py-4">وضعیت و دلیل</th>
                         </tr>
                     </thead>
                     <tbody id="table-body" class="divide-y divide-gray-800/50"></tbody>
@@ -128,46 +130,49 @@
 
                 const trendIcon = item.trend === 'bull' ? '🟢' : (item.trend === 'bear' ? '🔴' : '🟡');
                 const takerColor = adv.takerRatio > 55 ? 'text-emerald-400' : (adv.takerRatio < 45 ? 'text-red-400' : 'text-gray-300');
-                const fundingColor = parseFloat(adv.fundingRate) > 0.02 ? 'text-amber-400' : (parseFloat(adv.fundingRate) < 0 ? 'text-blue-400' : 'text-gray-400');
+                const adxColor = adv.adx > 30 ? 'text-emerald-400' : (adv.adx < 20 ? 'text-red-400' : 'text-amber-400');
                 const pocDist = parseFloat(adv.distToPoc) > 0 ? `+${adv.distToPoc}` : adv.distToPoc;
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-800/40 transition group">
-                        <td class="px-4 py-4 sticky right-0 bg-gray-900/90 group-hover:bg-gray-800/90 backdrop-blur z-10">
+                        <td class="px-3 py-3 sticky right-0 bg-gray-900/90 group-hover:bg-gray-800/90 backdrop-blur z-10">
                             <div class="font-black text-white text-sm tracking-wide">${item.symbol}</div>
                             <div class="font-mono text-xs text-blue-400 mt-1">${item.price}</div>
                         </td>
-                        <td class="px-4 py-4">
-                            <div class="font-medium text-gray-200">${item.structure}</div>
+                        <td class="px-3 py-3">
+                            <div class="font-medium text-gray-200 text-xs">${item.structure}</div>
                             <div class="text-[10px] text-gray-500 mt-1">${trendIcon} روند 15m</div>
                         </td>
-                        <td class="px-4 py-4 text-center">
-                            <div class="flex justify-center gap-2 text-lg">
-                                <span title="1H Trend">${adv.trend1h}</span>
-                                <span title="4H Trend">${adv.trend4h}</span>
-                            </div>
+                        <td class="px-3 py-3 text-center text-lg">
+                            ${adv.trend1h} ${adv.trend4h}
                         </td>
-                        <td class="px-4 py-4 font-mono font-bold ${takerColor}">
+                        <td class="px-3 py-3 font-mono font-bold ${takerColor}">
                             ${adv.takerRatio}%
                         </td>
-                        <td class="px-4 py-4 font-mono text-gray-400">
-                            ${adv.cvd > 0 ? '🟢 +' : '🔴 '}${adv.cvd}k
+                        <td class="px-3 py-3 font-mono font-bold ${adxColor}">
+                            ${adv.adx}
                         </td>
-                        <td class="px-4 py-4">
-                            <div class="font-mono text-xs ${fundingColor}">FR: ${adv.fundingRate}</div>
-                            <div class="font-mono text-[10px] text-gray-500 mt-1">OI: ${adv.oiDelta}</div>
+                        <td class="px-3 py-3 text-xs font-bold ${adv.isOTE.includes('بله') ? 'text-emerald-400' : 'text-gray-500'}">
+                            ${adv.isOTE}
                         </td>
-                        <td class="px-4 py-4">
+                        <td class="px-3 py-3 text-xs font-bold ${adv.hasOB.includes('تایید') ? 'text-emerald-400' : 'text-gray-500'}">
+                            ${adv.hasOB}
+                        </td>
+                        <td class="px-3 py-3 text-xs font-bold ${adv.isToxic.includes('جذب') ? 'text-amber-400' : 'text-gray-500'}">
+                            ${adv.isToxic}
+                        </td>
+                        <td class="px-3 py-3">
                             <div class="font-mono text-xs text-purple-300">${adv.poc}</div>
                             <div class="text-[10px] text-gray-500">${pocDist}</div>
                         </td>
-                        <td class="px-4 py-4">
-                            <div class="text-xs font-bold ${adv.liqZone.includes('لیکوییدیشن') ? 'text-amber-400' : 'text-gray-400'}">${adv.liqZone}</div>
-                            <div class="text-[10px] text-gray-500 mt-0.5">${adv.liqTarget}</div>
+                        <td class="px-3 py-3">
+                            <div class="text-[11px] font-bold ${adv.liqZone.includes('لیکوییدیشن') ? 'text-amber-400' : 'text-gray-400'}">${adv.liqZone}</div>
                         </td>
-                        <td class="px-4 py-4 font-mono text-gray-500 text-xs">${adv.atr}</td>
-                        <td class="px-4 py-4 max-w-[200px]">
-                            <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${statusClass} inline-block mb-1">${item.status}</span>
+                        <td class="px-3 py-3 font-mono text-emerald-400 font-bold text-xs">
+                            ${adv.kellyRisk}
+                        </td>
+                        <td class="px-3 py-3 max-w-[180px]">
+                            <span class="px-2 py-1 rounded-lg text-[10px] font-bold ${statusClass} inline-block mb-1">${item.status}</span>
                             <div class="text-[10px] text-gray-400 leading-tight">${item.reason}</div>
                         </td>
                     </tr>
