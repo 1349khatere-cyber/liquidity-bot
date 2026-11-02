@@ -3,7 +3,8 @@ import {
   cfg, sendTelegram, esc, fmtPrice, VERSION, loadState, saveState, 
   kvGet, kvPut, computeStats, getKlines, detectSignal, intervalMs,
   fmt, formatTehranTime, MIN_CONFLUENCE_SCORE, SURVIVAL_CONFIG,
-  CONFIRMATION_CONFIG, TREND_CONFIG, MSS_CONFIG, SWEEP_CONFIG, RISK_CONFIG
+  CONFIRMATION_CONFIG, TREND_CONFIG, MSS_CONFIG, SWEEP_CONFIG, RISK_CONFIG,
+  whySignal, formatWhyReport, SWEEP_ALERT_CONFIG
 } from '../lib/bot.js';
 
 async function getStatsText(env) {
@@ -44,7 +45,53 @@ async function handleTelegramUpdate(env, update) {
       `<i>استراتژی: شکار استاپ (Liquidity Sweep) + تغییر ساختار (MSS)</i>`, ``,
       `نمادها: ${c.symbols.join(", ")}`, `تایم‌فریم‌ها: ${c.timeframes.join(", ")}`, ``,
       `دستورات:`,
-      `/status /health /stats /positions /check /pause /resume /resetstats /diag`
+      `/status /health /stats /positions /check /why /diag /pause /resume`
+    ].join("\n"));
+    return;
+  }
+
+  if (cmd === "/why" || cmd === "/test") {
+    const sym = args[0] || c.symbols[0];
+    const tf = args[1] || "15m";
+    await sendTelegram(env, `⏳ در حال تحلیل کامل ${esc(sym)} ${esc(tf)}...`);
+    try { 
+      const r = await whySignal(env, sym, tf); 
+      await sendTelegram(env, formatWhyReport(r)); 
+    }
+    catch (e) { await sendTelegram(env, `❌ خطا: ${esc(e.message)}`); }
+    return;
+  }
+
+  if (cmd === "/diag") {
+    const state = await loadState();
+    const trades = await kvGet("TRADES", { open: [], closed: [] });
+    const pendingRetry = (trades.open || []).filter(t => t.pendingClose).length;
+    const lines = [
+      `<b>Diag v${VERSION}</b>`, `Paused: ${state.paused}`, `Schema: ${state.schema}`,
+      `Daily R: ${fmt(state.dailyR, 2)}`, `Daily signals: ${state.dailySignalsCount || 0}/${SURVIVAL_CONFIG.maxDailySignals}`,
+      `Consecutive losses: ${state.consecutiveLosses || 0}`,
+      `Daily blocked until: ${state.dailyLossBlockUntil ? formatTehranTime(state.dailyLossBlockUntil) : "-"}`,
+      `Pending close retry: ${pendingRetry}`,
+      `minSweepDepthPct: ${SWEEP_CONFIG.minSweepDepthPct}%`, `requireAdxMin: ${CONFIRMATION_CONFIG.requireAdxMin}`,
+      `Hard Trend Filter: ${TREND_CONFIG.enabled ? "✅" : "❌"}`, `MSS Confirmation: ${MSS_CONFIG.enabled ? "✅" : "❌"}`,
+      `Setup-Level Cooldown: ✅ (${SWEEP_CONFIG.sameLevelCooldownPct}%)`,
+      `Sweep Alert: ${SWEEP_ALERT_CONFIG.enabled ? "✅" : "❌ (غیرفعال)"}`,
+      `Max Entry Drift: ${c.maxEntryDriftPct}%`, `TG Secret: ${env.TELEGRAM_SECRET ? "✅ فعال" : "⚠️ تنظیم نشده"}`
+    ];
+    const gs = Object.entries(state.gateStats || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (gs.length) { lines.push("", "🔒 گیت‌های پرتکرار:"); for (const [k, v] of gs) lines.push(`   ${esc(k)}: ${v}`); }
+    await sendTelegram(env, lines.join("\n"));
+    return;
+  }
+
+  if (cmd === "/health") {
+    await sendTelegram(env, [
+      `<b>Health v${VERSION}</b>`, `استراتژی: Liquidity Sweep`, `Min Score: ${MIN_CONFLUENCE_SCORE}/10`,
+      `minSweepDepth: ${SWEEP_CONFIG.minSweepDepthPct}%`, `min ADX: ${CONFIRMATION_CONFIG.requireAdxMin}`,
+      `Hard Trend Filter: ✅`, `MSS Confirmation: ✅`, `Sweep Alert: ❌`,
+      `Symbols: ${c.symbols.length}`, `Timeframes: ${c.timeframes.join(", ")}`,
+      `Max Entry Drift: ${c.maxEntryDriftPct}%`, `Min SL: ${RISK_CONFIG.minSlPct}% / ${RISK_CONFIG.minSlAtr} ATR`,
+      `TG Secret: ${env.TELEGRAM_SECRET ? "✅" : "⚠️ تنظیم نشده"}`
     ].join("\n"));
     return;
   }
@@ -90,14 +137,11 @@ async function handleTelegramUpdate(env, update) {
   if (cmd === "/check") {
     await sendTelegram(env, "⏳ در حال بررسی... (لطفا صبر کنید)");
     try {
-      // استفاده از آدرس اصلی و قطعی پروژه در Vercel
       const url = 'https://liquidity-bot-khaki.vercel.app/api/run';
-      
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'x-api-key': process.env.API_SECRET || '' }
       });
-      
       const data = await res.json();
       
       if (data.ok) {
@@ -122,7 +166,7 @@ async function handleTelegramUpdate(env, update) {
     const state = await loadState();
     state.paused = true; state.pausedReason = `manual@${new Date().toISOString()}`;
     await saveState(state, true);
-    await sendTelegram(env, "⏸ ربات متوقف شد. (پیگیری معاملات باز ادامه دارد)");
+    await sendTelegram(env, "⏸ ربات متوقف شد.");
     return;
   }
 
@@ -133,30 +177,13 @@ async function handleTelegramUpdate(env, update) {
     await sendTelegram(env, "▶️ ربات فعال شد.");
     return;
   }
-
-  if (cmd === "/resetstats") {
-    const trades = await kvGet("TRADES", { open: [], closed: [] });
-    const openCount = (trades.open || []).length;
-    const closedCount = (trades.closed || []).length;
-    trades.closed = []; await kvPut("TRADES", trades);
-    const state = await loadState();
-    state.dailyR = 0; state.dailySignalsCount = 0; state.consecutiveLosses = 0;
-    state.dailyLossBlockUntil = 0; state.lastSignals = {};
-    await saveState(state, true);
-    await sendTelegram(env, [`🔄 ریست انجام شد:`, `   • آمار (${closedCount} معامله بسته) پاک شد`, `   • ${openCount} معامله باز دست‌نخورده باقی ماند`].join("\n"));
-    return;
-  }
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).send("Method Not Allowed");
-  }
+  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
   if (process.env.TELEGRAM_SECRET) {
     const headerSecret = req.headers['x-telegram-bot-api-secret-token'];
-    if (headerSecret !== process.env.TELEGRAM_SECRET) {
-      return res.status(401).send("unauthorized");
-    }
+    if (headerSecret !== process.env.TELEGRAM_SECRET) return res.status(401).send("unauthorized");
   }
   try {
     await handleTelegramUpdate(process.env, req.body);
