@@ -20,7 +20,7 @@
         <!-- هدر -->
         <div class="flex flex-col md:flex-row justify-between items-center glass-panel rounded-2xl p-5 shadow-2xl">
             <div class="flex items-center gap-3 mb-4 md:mb-0">
-                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-xl font-black">LH</div>
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-xl font-black text-white">LH</div>
                 <div>
                     <h1 class="text-2xl font-black text-white glow-text">میز معاملات حرفه‌ای Liquidity Hunter</h1>
                     <p class="text-xs text-gray-400">موتور تصمیم‌گیری پیشرفته چندفاکتوری</p>
@@ -28,7 +28,7 @@
             </div>
             <div class="flex items-center gap-4">
                 <span id="status-badge" class="px-4 py-2 rounded-xl bg-gray-800 text-sm font-medium border border-gray-700">در حال اتصال...</span>
-                <button onclick="fetchAllData()" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-xl text-sm font-bold transition shadow-lg shadow-blue-900/50">بروزرسانی زنده</button>
+                <button onclick="manualRefresh()" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded-xl text-sm font-bold transition shadow-lg shadow-blue-900/50">بروزرسانی زنده</button>
             </div>
         </div>
 
@@ -53,9 +53,13 @@
 
         <!-- جدول اصلی داده‌ها -->
         <div class="glass-panel rounded-2xl shadow-2xl overflow-hidden border border-gray-700/50">
-            <div class="p-5 border-b border-gray-700/50 flex justify-between items-center">
+            <div class="p-5 border-b border-gray-700/50 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <h2 class="text-lg font-bold">پایش لحظه‌ای بازار و سطوح کلیدی (15 دقیقه)</h2>
-                <span class="text-xs text-gray-400 bg-gray-800 px-3 py-1 rounded-lg">به‌روزرسانی خودکار: 30 ثانیه</span>
+                <!-- کانت‌دان شمارش معکوس -->
+                <span id="countdown-text" class="text-xs text-emerald-400 bg-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 border border-emerald-900/50 transition-all duration-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>به‌روزرسانی خودکار در 30 ثانیه</span>
+                </span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-right text-xs">
@@ -83,22 +87,59 @@
 
     <script>
         const API_URL = 'https://liquidity-bot-khaki.vercel.app/api/market-status';
+        
+        let countdown = 30;
+        let timerInterval = null;
 
+        // شروع تایمر شمارش معکوس
+        function startCountdown() {
+            if (timerInterval) clearInterval(timerInterval);
+            countdown = 30;
+            updateCountdownUI();
+
+            timerInterval = setInterval(() => {
+                countdown--;
+                updateCountdownUI();
+                
+                if (countdown <= 0) {
+                    fetchAllData(); // زمان آپدیت فرا رسید
+                    countdown = 30; // ریست تایمر برای دور بعدی
+                }
+            }, 1000);
+        }
+
+        // آپدیت متن شمارش معکوس
+        function updateCountdownUI() {
+            const el = document.getElementById('countdown-text');
+            if (el) {
+                el.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> به‌روزرسانی خودکار در ${countdown} ثانیه`;
+            }
+        }
+
+        // بروزرسانی دستی (وقتی کاربر دکمه را می‌زند)
+        function manualRefresh() {
+            fetchAllData();
+            startCountdown(); // تایمر را ریست کن
+        }
+
+        // دریافت داده‌ها از API
         async function fetchAllData() {
-            document.getElementById('status-badge').innerText = 'در حال بروزرسانی...';
-            document.getElementById('status-badge').className = 'px-4 py-2 rounded-xl bg-gray-700 text-sm font-medium border border-gray-600';
+            const badge = document.getElementById('status-badge');
+            badge.innerText = 'در حال بروزرسانی...';
+            badge.className = 'px-4 py-2 rounded-xl bg-gray-700 text-sm font-medium border border-gray-600';
+
             try {
                 const res = await fetch(API_URL);
                 const json = await res.json();
                 if (json.ok) {
                     renderSummary(json.summary);
                     renderTable(json.data);
-                    document.getElementById('status-badge').className = 'px-4 py-2 rounded-xl bg-emerald-900/50 text-emerald-300 text-sm font-bold border border-emerald-500/50';
-                    document.getElementById('status-badge').innerText = 'متصل (Live)';
+                    badge.className = 'px-4 py-2 rounded-xl bg-emerald-900/50 text-emerald-300 text-sm font-bold border border-emerald-500/50';
+                    badge.innerText = 'متصل (Live)';
                 }
             } catch (e) {
-                document.getElementById('status-badge').className = 'px-4 py-2 rounded-xl bg-red-900/50 text-red-300 text-sm font-bold border border-red-500/50';
-                document.getElementById('status-badge').innerText = 'خطا در اتصال';
+                badge.className = 'px-4 py-2 rounded-xl bg-red-900/50 text-red-300 text-sm font-bold border border-red-500/50';
+                badge.innerText = 'خطا در اتصال';
             }
         }
 
@@ -180,8 +221,9 @@
             });
         }
 
+        // شروع اولیه
         fetchAllData();
-        setInterval(fetchAllData, 30000);
+        startCountdown();
     </script>
 </body>
 </html>
