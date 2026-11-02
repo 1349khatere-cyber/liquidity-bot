@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { checkOTE, checkOrderBlock, checkToxicFlow, calculateKellyRisk, adx } from '../lib/bot.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -8,20 +9,15 @@ const redis = new Redis({
 const BASE = "https://api.toobit.com";
 const SYMBOLS = ["SOL-SWAP-USDT", "XRP-SWAP-USDT", "ADA-SWAP-USDT", "LINK-SWAP-USDT", "AVAX-SWAP-USDT"];
 
-function intervalMs(tf) {
-  return { "15m": 900e3, "1h": 3600e3, "4h": 14400e3 }[tf] || 900e3;
-}
+function intervalMs(tf) { return { "15m": 900e3, "1h": 3600e3, "4h": 14400e3 }[tf] || 900e3; }
 
 async function publicGet(path, params = {}) {
   const url = new URL(BASE + path);
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   try {
     const res = await fetch(url.toString(), { headers: { accept: "application/json" } });
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    return null;
-  }
+    return await res.json();
+  } catch (e) { return null; }
 }
 
 async function fetchKlines(symbol, interval, limit) {
@@ -40,8 +36,7 @@ function calcATR(candles, period = 14) {
   if (candles.length < period + 1) return 0;
   let sum = 0;
   for (let i = candles.length - period; i < candles.length; i++) {
-    const tr = Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - candles[i-1].c), Math.abs(candles[i].l - candles[i-1].c));
-    sum += tr;
+    sum += Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - candles[i-1].c), Math.abs(candles[i].l - candles[i-1].c));
   }
   return sum / period;
 }
@@ -73,16 +68,12 @@ function calcFlowMetrics(candles) {
 function estimateDerivatives(trend, strength, rsi) {
   let funding = 0.01;
   let oiChange = 0;
-  
   if (trend === "bull" && rsi > 65) funding = 0.035;
   else if (trend === "bear" && rsi < 35) funding = -0.025;
-
   if (strength > 65) oiChange = 8.4;
   else if (strength < 35) oiChange = -5.2;
-
   return {
     fundingRate: funding.toFixed(3) + "%",
-    openInterest: Math.abs(oiChange).toFixed(1) + "M",
     oiDelta: oiChange > 0 ? `+${oiChange}%` : `${oiChange}%`
   };
 }
@@ -108,17 +99,15 @@ function calcVolumeProfile(candles, currentPrice) {
 function calcLiquidationZones(price, trend, atr) {
   const longLiqPrice = price * (1 - 0.025);
   const shortLiqPrice = price * (1 + 0.025);
-  
   let hotZone = "متعادل";
   let target = "بدون طعمه واضح";
   if (trend === "bear" && price > longLiqPrice * 1.02) {
     hotZone = "استخر لیکوییدیشن خریداران";
-    target = `$${longLiqPrice.toFixed(4)} (ناحیه جاذبه قوی)`;
+    target = `$${longLiqPrice.toFixed(4)} (جاذبه قوی)`;
   } else if (trend === "bull" && price < shortLiqPrice * 0.98) {
     hotZone = "استخر لیکوییدیشن فروشندگان";
-    target = `$${shortLiqPrice.toFixed(4)} (ناحیه جاذبه قوی)`;
+    target = `$${shortLiqPrice.toFixed(4)} (جاذبه قوی)`;
   }
-  
   return { hotZone, liquidationTarget: target };
 }
 
@@ -135,7 +124,6 @@ async function getMarketStatus(symbol) {
   const price = closes[closes.length - 1];
   const atr = calcATR(c15m, 14);
   const emas = calcEMAs(closes);
-  
   const e1h = calcEMAs(c1h.map(c => c.c));
   const e4h = calcEMAs(c4h.map(c => c.c));
   
@@ -150,6 +138,13 @@ async function getMarketStatus(symbol) {
   const deriv = estimateDerivatives(trend, trend === "bull" ? 75 : 25, trend === "bull" ? 68 : 32);
   const vp = calcVolumeProfile(c15m, price);
   const liq = calcLiquidationZones(price, trend, atr);
+  
+  const adxVal = adx(c15m, 14);
+  const side = trend === "bull" ? "LONG" : "SHORT";
+  const isOTE = checkOTE(c15m, side);
+  const hasOB = checkOrderBlock(c15m, side);
+  const isToxic = checkToxicFlow(c15m);
+  const kellyRisk = calculateKellyRisk(0.55, 2.0);
 
   const recentHigh = Math.max(...c15m.slice(-30).map(c => c.h));
   const recentLow = Math.min(...c15m.slice(-30).map(c => c.l));
@@ -160,12 +155,13 @@ async function getMarketStatus(symbol) {
 
   let status = "انتظار (Wait)";
   let reason = "در انتظار همسویی تایم‌فریم‌ها و حجم";
-  if (structure.includes("حمایت") && trend1h !== "bear" && flow.takerRatio > 52) {
+  
+  if (structure.includes("حمایت") && trend1h !== "bear" && flow.takerRatio > 52 && adxVal > 25) {
     status = "🟢 فرصت خرید (Long)";
-    reason = "همسویی حمایت + برتری خریداران";
-  } else if (structure.includes("مقاومت") && trend1h !== "bull" && flow.takerRatio < 48) {
+    reason = "همسویی حمایت + ADX مناسب + برتری خریداران";
+  } else if (structure.includes("مقاومت") && trend1h !== "bull" && flow.takerRatio < 48 && adxVal > 25) {
     status = "🔴 فرصت فروش (Short)";
-    reason = "همسویی مقاومت + فشار فروشندگان";
+    reason = "همسویی مقاومت + ADX مناسب + فشار فروشندگان";
   }
 
   return {
@@ -186,7 +182,12 @@ async function getMarketStatus(symbol) {
       distToPoc: vp.distanceToPoc,
       liqZone: liq.hotZone,
       liqTarget: liq.liquidationTarget,
-      atr: atr.toFixed(4)
+      atr: atr.toFixed(4),
+      adx: Number.isFinite(adxVal) ? Number(adxVal.toFixed(1)) : 0,
+      isOTE: isOTE ? "✅ بله" : "❌ خیر",
+      hasOB: hasOB ? "✅ تایید" : "❌ بدون تایید",
+      isToxic: isToxic ? "🔥 جذب" : "نرمال",
+      kellyRisk: kellyRisk.toFixed(2) + "%"
     }
   };
 }
