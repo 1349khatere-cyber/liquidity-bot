@@ -61,6 +61,18 @@ function calcATR(candles, period = 14) {
   return sum / period;
 }
 
+// شبیه‌سازی CVD (Cumulative Volume Delta)
+function calcCVD(candles) {
+  let cvd = 0;
+  const cvdSeries = [];
+  for (const c of candles) {
+    const delta = c.c > c.o ? c.v : (c.c < c.o ? -c.v : 0);
+    cvd += delta;
+    cvdSeries.push(cvd);
+  }
+  return cvdSeries;
+}
+
 async function getMarketStatus(symbol) {
   const candles = await fetchKlines(symbol, INTERVAL, LIMIT);
   if (candles.length < 200) return null;
@@ -76,81 +88,65 @@ async function getMarketStatus(symbol) {
   const volMA20 = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
   const volRatio = volMA20 > 0 ? currentCandle.v / volMA20 : 1;
 
+  // محاسبه جذب سفارشات (Absorption) و واگرایی (Divergence)
+  const body = Math.abs(currentCandle.c - currentCandle.o);
+  const range = currentCandle.h - currentCandle.l;
+  let orderFlow = "نرمال";
+  if (volRatio > 1.8 && body < range * 0.3) orderFlow = "🔴 جذب سفارشات"; // حجم بالا، بدنه کوچک
+  else if (volRatio > 1.5) orderFlow = "🟢 جریان خرید/فروش قوی";
+
+  const cvdSeries = calcCVD(candles);
+  const recentCVD = cvdSeries[cvdSeries.length - 1] - cvdSeries[cvdSeries.length - 6];
+  const recentPriceDiff = price - closes[closes.length - 6];
+  let divergence = "همسو";
+  if (recentPriceDiff > 0 && recentCVD < 0) divergence = "⚠️ واگرایی نزولی";
+  else if (recentPriceDiff < 0 && recentCVD > 0) divergence = "⚠️ واگرایی صعودی";
+
   const recentCandles = candles.slice(-30);
   const recentHigh = Math.max(...recentCandles.map(c => c.h));
   const recentLow = Math.min(...recentCandles.map(c => c.l));
 
-  // منطق دقیق تشخیص ساختار و تایید کندلی
-  let structure = "میانه رنج (در حال نوسان)";
+  let structure = "میانه رنج";
   let status = "انتظار";
   let reason = "شرایط ایده‌آل نیست";
-  let timeEstimate = "نامشخص";
-
-  // بررسی وضعیت نزدیک حمایت
+  
   if (price <= recentLow + (atr * 0.5)) {
       const isGreenCandle = currentCandle.c > currentCandle.o;
       const isBreaking = currentCandle.c < recentLow;
-
-      if (isBreaking && !isGreenCandle) {
-          structure = "🔴 شکست حمایت";
-          status = "🔴 فروش (ادامه روند نزولی)";
-          reason = "کندل نزولی زیر سطح حمایت بسته شده است";
-          timeEstimate = "۲ تا ۴ کندل";
-      } else if (!isBreaking && isGreenCandle) {
-          structure = "🟢 برگشت از حمایت";
-          status = "🟢 آماده خرید";
-          reason = "کندل صعودی روی حمایت شکل گرفته است";
-          timeEstimate = "۳ تا ۵ کندل";
-      } else {
-          structure = "⏳ تست حمایت (بدون تایید)";
-          status = "انتظار برای تایید کندل";
-          reason = "قیمت روی حمایت است اما کندل هنوز تاییدیه برگشت نداده است";
-      }
-  } 
-  // بررسی وضعیت نزدیک مقاومت
-  else if (price >= recentHigh - (atr * 0.5)) {
+      if (isBreaking && !isGreenCandle) { structure = "🔴 شکست حمایت"; status = "🔴 فروش"; reason = "شکست نزولی حمایت"; }
+      else if (!isBreaking && isGreenCandle) { structure = "🟢 برگشت از حمایت"; status = "🟢 خرید"; reason = "تایید کندل صعودی روی حمایت"; }
+      else { structure = "⏳ تست حمایت"; status = "انتظار"; reason = "در انتظار تایید کندل"; }
+  } else if (price >= recentHigh - (atr * 0.5)) {
       const isRedCandle = currentCandle.c < currentCandle.o;
       const isBreaking = currentCandle.c > recentHigh;
-
-      if (isBreaking && !isRedCandle) {
-          structure = "🟢 شکست مقاومت";
-          status = "🟢 خرید (ادامه روند صعودی)";
-          reason = "کندل صعودی بالای سطح مقاومت بسته شده است";
-          timeEstimate = "۲ تا ۴ کندل";
-      } else if (!isBreaking && isRedCandle) {
-          structure = "🔴 برگشت از مقاومت";
-          status = "🔴 آماده فروش";
-          reason = "کندل نزولی روی مقاومت شکل گرفته است";
-          timeEstimate = "۳ تا ۵ کندل";
-      } else {
-          structure = "⏳ تست مقاومت (بدون تایید)";
-          status = "انتظار برای تایید کندل";
-          reason = "قیمت روی مقاومت است اما کندل هنوز تاییدیه رد شدن نداده است";
-      }
+      if (isBreaking && !isRedCandle) { structure = "🟢 شکست مقاومت"; status = "🟢 خرید"; reason = "شکست صعودی مقاومت"; }
+      else if (!isBreaking && isRedCandle) { structure = "🔴 برگشت از مقاومت"; status = "🔴 فروش"; reason = "تایید کندل نزولی روی مقاومت"; }
+      else { structure = "⏳ تست مقاومت"; status = "انتظار"; reason = "در انتظار تایید کندل"; }
   }
-
-  let confirmation = "بدون تایید قوی";
-  if (volRatio > 1.5 && Math.abs(currentCandle.c - currentCandle.o) > atr * 0.5) confirmation = "🟢 کندل قوی + حجم زیاد";
-  else if (volRatio > 1.1) confirmation = "🟡 حجم متوسط";
 
   let trend = "neutral";
   if (ema20 > ema50 && price > ema200) trend = "bull";
   else if (ema20 < ema50 && price < ema200) trend = "bear";
 
-  const aiConsensus = trend === "bull" ? "🟢 ۲/۳ خرید" : trend === "bear" ? "🔴 ۲/۳ فروش" : "⚪ خنثی";
-  const whaleActivity = volRatio > 1.3 ? "🐋 فعالیت بالا" : "⚪ عادی";
+  // شاخص قدرت نسبی (0 تا 100)
+  let strength = 50;
+  if (trend === "bull") strength += 20;
+  if (trend === "bear") strength -= 20;
+  if (rsiVal > 60) strength += 10;
+  if (rsiVal < 40) strength -= 10;
+  if (volRatio > 1.5) strength += 10;
+  strength = Math.max(0, Math.min(100, strength));
 
   return { 
     symbol: symbol.split('-')[0], 
     price: Number(price.toFixed(4)), 
     trend, 
     structure, 
-    confirmation, 
+    confirmation: orderFlow, 
+    divergence,
     rsi: Number.isFinite(rsiVal) ? Number(rsiVal.toFixed(1)) : 0, 
-    aiConsensus, 
-    whaleActivity, 
+    strength,
     status, 
-    timeEstimate, 
     reason 
   };
 }
@@ -161,6 +157,26 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   try {
     const results = await Promise.all(SYMBOLS.map(getMarketStatus));
-    return res.status(200).json({ ok: true, data: results.filter(Boolean) });
+    const validResults = results.filter(Boolean);
+    
+    // ساخت خلاصه وضعیت (Summary)
+    let topPick = validResults.find(r => r.status.includes('خرید') || r.status.includes('فروش')) || null;
+    if (!topPick) topPick = validResults.sort((a, b) => b.strength - a.strength)[0]; // اگر هیچ کدام آماده نبود، قوی‌ترین را نشان بده
+
+    const whaleAlert = validResults.find(r => r.confirmation.includes('جذب') || r.confirmation.includes('قوی'));
+    
+    let marketCondition = "رِنج (بدون روند)";
+    const bullCount = validResults.filter(r => r.trend === 'bull').length;
+    const bearCount = validResults.filter(r => r.trend === 'bear').length;
+    if (bullCount >= 3) marketCondition = "صعودی (Bullish)";
+    else if (bearCount >= 3) marketCondition = "نزولی (Bearish)";
+
+    const summary = {
+      topPick: topPick ? { symbol: topPick.symbol, status: topPick.status, reason: topPick.reason } : null,
+      whaleAlert: whaleAlert ? { symbol: whaleAlert.symbol, type: whaleAlert.confirmation } : null,
+      marketCondition
+    };
+
+    return res.status(200).json({ ok: true, summary, data: validResults });
   } catch (error) { return res.status(500).json({ ok: false, error: error.message }); }
 }
