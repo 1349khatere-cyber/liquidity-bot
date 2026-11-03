@@ -197,7 +197,7 @@ async function getMarketStatus(symbol, dynamicRisk) {
     status,
     reason,
     advanced: {
-      // داده‌های قبلی (حفظ شده)
+      // ستون‌های قبلی
       takerRatio: flow.takerRatio,
       adx: Number.isFinite(adxVal) ? Number(adxVal.toFixed(1)) : 0,
       isOTE: isOTE ? "✅ بله" : "❌ خیر",
@@ -211,7 +211,7 @@ async function getMarketStatus(symbol, dynamicRisk) {
       trend1h: trend1h === "bull" ? "🟢" : "🔴",
       trend4h: trend4h === "bull" ? "🟢" : "🔴",
 
-      // داده‌های جدید (اضافه شده)
+      // ستون‌های جدید
       topTrader: instData.topTrader,
       oiDivergence: instData.oiDivergence,
       whaleWall: instData.whaleWall,
@@ -236,7 +236,7 @@ export default async function handler(req, res) {
     }));
     
     const valid = results.filter(Boolean);
-    if (valid.length === 0) throw new Error("No data fetched from exchange");
+    if (valid.length === 0) throw new Error("No data fetched");
 
     const bullCount = valid.filter(r => r.trend === 'bull').length;
     const bearCount = valid.filter(r => r.trend === 'bear').length;
@@ -251,7 +251,7 @@ export default async function handler(req, res) {
       topPick: topPick ? { symbol: topPick.symbol, status: topPick.advanced.verdict, reason: topPick.reason } : null,
       whaleAlert: whaleAlert ? { symbol: whaleAlert.symbol, type: whaleAlert.advanced.whaleWall } : null,
       topTrader: topTraderData ? { symbol: topTraderData.symbol, ratio: topTraderData.advanced.topTrader } : null,
-      flowAlert: valid.find(r => r.advanced.takerRatio > 60 || r.advanced.takerRatio < 40), // برای کارت دوم
+      flowAlert: valid.find(r => r.advanced.takerRatio > 60 || r.advanced.takerRatio < 40),
       marketCondition,
       fearGreed
     };
