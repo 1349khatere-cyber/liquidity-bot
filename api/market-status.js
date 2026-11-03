@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import { checkOTE, checkOrderBlock, checkToxicFlow, calculateKellyRisk, adx } from '../lib/bot.js';
+import { checkOTE, checkOrderBlock, checkToxicFlow, adx } from '../lib/bot.js';
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -96,28 +96,59 @@ function calcVolumeProfile(candles, currentPrice) {
   };
 }
 
-// 🟢 ارتقای منطق محاسبه استخر لیکوییدیشن با هدف قیمتی دقیق
 function calcLiquidationZones(price, trend, recentHigh, recentLow) {
   let hotZone = "متعادل";
   let target = "بدون طعمه واضح";
-  
-  // اگر روند نزولی است یا قیمت به سقف نزدیک است، استاپ فروشندگان بالای سقف است
   if (trend === "bear" || Math.abs(price - recentHigh) / recentHigh < 0.02) {
-    const liqLevel = recentHigh * 1.003; // کمی بالاتر از سقف
+    const liqLevel = recentHigh * 1.003;
     hotZone = "استخر لیکوییدیشن فروشندگان";
     target = `تا $${liqLevel.toFixed(4)}`;
-  } 
-  // اگر روند صعودی است یا قیمت به کف نزدیک است، استاپ خریداران زیر کف است
-  else if (trend === "bull" || Math.abs(price - recentLow) / recentLow < 0.02) {
-    const liqLevel = recentLow * 0.997; // کمی پایین‌تر از کف
+  } else if (trend === "bull" || Math.abs(price - recentLow) / recentLow < 0.02) {
+    const liqLevel = recentLow * 0.997;
     hotZone = "استخر لیکوییدیشن خریداران";
     target = `تا $${liqLevel.toFixed(4)}`;
   }
-
   return { hotZone, liquidationTarget: target };
 }
 
-async function getMarketStatus(symbol) {
+// 🟢 تابع جدید محاسبه ریسک پویا بر اساس عملکرد واقعی ربات
+async function getDynamicKellyRisk() {
+  let winRate = 0.55; // پیش‌فرض در صورت نبود سابقه
+  let avgRR = 2.0;    // پیش‌فرض
+
+  try {
+    const tradesRaw = await redis.get("TRADES");
+    if (tradesRaw) {
+      const trades = typeof tradesRaw === 'string' ? JSON.parse(tradesRaw) : tradesRaw;
+      const closed = trades.closed || [];
+      const valid = closed.filter(t => t.status !== 'VOID' && Number.isFinite(t.R));
+      
+      if (valid.length >= 5) { // حداقل ۵ معامله برای محاسبه معتبر
+        const wins = valid.filter(t => t.R > 0).length;
+        winRate = wins / valid.length;
+        
+        const winsTrades = valid.filter(t => t.R > 0);
+        if (winsTrades.length > 0) {
+          avgRR = winsTrades.reduce((sum, t) => sum + t.R, 0) / winsTrades.length;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Error fetching trades for Kelly:", e);
+  }
+
+  // فرمول کلی (Kelly Criterion)
+  const p = winRate;
+  const q = 1 - p;
+  const b = Math.max(avgRR, 0.1); // جلوگیری از تقسیم بر صفر
+  const f = (b * p - q) / b;
+  
+  // محدود کردن ریسک بین 0.1% تا 2% (سقف امنیتی)
+  const riskPct = Math.max(0.1, Math.min(f * 100, 2.0));
+  return riskPct.toFixed(2);
+}
+
+async function getMarketStatus(symbol, dynamicRisk) {
   const [c15m, c1h, c4h] = await Promise.all([
     fetchKlines(symbol, "15m", 300),
     fetchKlines(symbol, "1h", 300),
@@ -154,7 +185,6 @@ async function getMarketStatus(symbol) {
   const isOTE = checkOTE(c15m, side);
   const hasOB = checkOrderBlock(c15m, side);
   const isToxic = checkToxicFlow(c15m);
-  const kellyRisk = calculateKellyRisk(0.55, 2.0);
 
   let structure = "ناحیه نوسان مرکزی";
   if (price <= recentLow + atr * 0.5) structure = "🟢 تست حمایت پایین";
@@ -194,7 +224,7 @@ async function getMarketStatus(symbol) {
       isOTE: isOTE ? "✅ بله" : "❌ خیر",
       hasOB: hasOB ? "✅ تایید" : "❌ بدون تایید",
       isToxic: isToxic ? "🔥 جذب" : "نرمال",
-      kellyRisk: kellyRisk.toFixed(2) + "%"
+      kellyRisk: dynamicRisk + "%" // استفاده از ریسک پویا
     }
   };
 }
@@ -205,7 +235,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const results = await Promise.all(SYMBOLS.map(getMarketStatus));
+    const dynamicRisk = await getDynamicKellyRisk(); // محاسبه یک‌باره ریسک برای همه
+    const results = await Promise.all(SYMBOLS.map(s => getMarketStatus(s, dynamicRisk)));
     const valid = results.filter(Boolean);
 
     let topPick = valid.find(r => r.status.includes('فرصت'));
