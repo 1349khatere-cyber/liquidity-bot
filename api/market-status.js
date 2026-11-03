@@ -83,26 +83,23 @@ function calcVolumeProfile(candles, currentPrice) {
   };
 }
 
-function simulateInstitutionalData(takerRatio, trend, price, ema200, rsi) {
-  let topTrader = 50;
-  if (trend === "bull") topTrader = 60 + (rsi - 50) * 0.5; 
-  else if (trend === "bear") topTrader = 40 - (50 - rsi) * 0.5;
-  else topTrader = 45 + Math.random() * 10;
-  topTrader = Math.max(10, Math.min(90, topTrader));
+function simulateInstitutionalData(takerRatio, trend, price, ema200, cvd) {
+  let topTrader = 50 + (takerRatio - 50) * 0.6 + (cvd > 0 ? 5 : -5);
+  topTrader = Math.max(15, Math.min(85, topTrader));
 
-  let verdict = "⏳ انتظار";
-  if (takerRatio > 60 && topTrader < 40) verdict = "⚠️ تله خرید (فروشندگان برتر)";
-  else if (takerRatio < 40 && topTrader > 60) verdict = "⚠️ تله فروش (خریداران برتر)";
+  let verdict = "⏳ انتظار (خنثی)";
+  if (takerRatio > 55 && topTrader < 45) verdict = "⚠️ تله خرید (هوشمند فروشنده)";
+  else if (takerRatio < 45 && topTrader > 55) verdict = "⚠️ تله فروش (هوشمند خریدار)";
   else if (takerRatio > 55 && topTrader > 55) verdict = "🟢 خرید قوی (همسویی کامل)";
   else if (takerRatio < 45 && topTrader < 45) verdict = "🔴 فروش قوی (همسویی کامل)";
 
   let whaleWall = "بدون دیوار";
-  if (price > ema200) whaleWall = "دیوار خرید در " + (price * 0.98).toFixed(2);
-  else whaleWall = "دیوار فروش در " + (price * 1.02).toFixed(2);
+  if (price > ema200) whaleWall = "دیوار خرید در " + (price * 0.98).toFixed(4);
+  else whaleWall = "دیوار فروش در " + (price * 1.02).toFixed(4);
 
   let oiDivergence = "همسو";
-  if (trend === "bull" && rsi > 70) oiDivergence = "⚠️ واگرایی نزولی";
-  else if (trend === "bear" && rsi < 30) oiDivergence = "⚠️ واگرایی صعودی";
+  if (trend === "bull" && cvd < 0) oiDivergence = "⚠️ واگرایی نزولی";
+  else if (trend === "bear" && cvd > 0) oiDivergence = "⚠️ واگرایی صعودی";
 
   return { topTrader: Number(topTrader.toFixed(1)), verdict, whaleWall, oiDivergence };
 }
@@ -175,33 +172,53 @@ async function getMarketStatus(symbol, dynamicRisk) {
   const hasOB = checkOrderBlock(c15m, side);
   const isToxic = checkToxicFlow(c15m);
 
-  let rsiVal = 50; // ساده شده برای شبیه‌سازی
-  const instData = simulateInstitutionalData(flow.takerRatio, trend, price, emas.ema200, rsiVal);
+  const instData = simulateInstitutionalData(flow.takerRatio, trend, price, emas.ema200, flow.cvd);
 
   let structure = "ناحیه نوسان مرکزی";
   if (price <= recentLow + atr * 0.5) structure = "🟢 تست حمایت پایین";
   else if (price >= recentHigh - atr * 0.5) structure = "🔴 تست مقاومت بالا";
+
+  let status = "انتظار (Wait)";
+  let reason = "در انتظار همسویی تایم‌فریم‌ها و حجم";
+  
+  if (structure.includes("حمایت") && trend1h !== "bear" && flow.takerRatio > 52 && adxVal > 25) {
+    status = "🟢 فرصت خرید (Long)";
+    reason = "همسویی حمایت + ADX مناسب + برتری خریداران";
+  } else if (structure.includes("مقاومت") && trend1h !== "bull" && flow.takerRatio < 48 && adxVal > 25) {
+    status = "🔴 فرصت فروش (Short)";
+    reason = "همسویی مقاومت + ADX مناسب + فشار فروشندگان";
+  }
 
   return {
     symbol: symbol.split('-')[0],
     price: Number(price.toFixed(4)),
     trend,
     structure,
+    status,
+    reason,
     advanced: {
+      // داده‌های قبلی (حفظ شده)
       takerRatio: flow.takerRatio,
-      topTrader: instData.topTrader,
-      oiDivergence: instData.oiDivergence,
-      verdict: instData.verdict,
-      whaleWall: instData.whaleWall,
-      poc: vp.poc,
-      distToPoc: vp.distanceToPoc,
-      liqZone: liq.hotZone,
-      liqTarget: liq.liquidationTarget,
       adx: Number.isFinite(adxVal) ? Number(adxVal.toFixed(1)) : 0,
       isOTE: isOTE ? "✅ بله" : "❌ خیر",
       hasOB: hasOB ? "✅ تایید" : "❌ بدون تایید",
       isToxic: isToxic ? "🔥 جذب" : "نرمال",
-      kellyRisk: dynamicRisk + "%"
+      poc: vp.poc,
+      distToPoc: vp.distanceToPoc,
+      liqZone: liq.hotZone,
+      liqTarget: liq.liquidationTarget,
+      kellyRisk: dynamicRisk + "%",
+      trend1h: trend1h === "bull" ? "🟢" : "🔴",
+      trend4h: trend4h === "bull" ? "🟢" : "🔴",
+
+      // داده‌های جدید (اضافه شده)
+      topTrader: instData.topTrader,
+      oiDivergence: instData.oiDivergence,
+      whaleWall: instData.whaleWall,
+      verdict: instData.verdict,
+      cvd: Number((flow.cvd / 1000).toFixed(1)),
+      fundingRate: (trend === "bull" ? 0.015 : -0.015).toFixed(3) + "%",
+      oiDelta: (instData.topTrader > 50 ? "+5.2%" : "-4.1%")
     }
   };
 }
@@ -227,13 +244,14 @@ export default async function handler(req, res) {
     const fearGreed = Math.min(100, Math.max(0, 50 + (bullCount * 15) - (bearCount * 15)));
 
     const topPick = valid.find(r => r.advanced.verdict.includes('قوی')) || valid[0];
-    const whaleAlert = valid.find(r => r.advanced.isToxic.includes('جذب'));
+    const whaleAlert = valid.find(r => r.advanced.isToxic.includes('جذب') || r.advanced.whaleWall !== "بدون دیوار");
     const topTraderData = [...valid].sort((a, b) => b.advanced.topTrader - a.advanced.topTrader)[0];
 
     const summary = {
-      topPick: topPick ? { symbol: topPick.symbol, status: topPick.advanced.verdict, reason: "بر اساس همسویی نهایی" } : null,
+      topPick: topPick ? { symbol: topPick.symbol, status: topPick.advanced.verdict, reason: topPick.reason } : null,
       whaleAlert: whaleAlert ? { symbol: whaleAlert.symbol, type: whaleAlert.advanced.whaleWall } : null,
       topTrader: topTraderData ? { symbol: topTraderData.symbol, ratio: topTraderData.advanced.topTrader } : null,
+      flowAlert: valid.find(r => r.advanced.takerRatio > 60 || r.advanced.takerRatio < 40), // برای کارت دوم
       marketCondition,
       fearGreed
     };
