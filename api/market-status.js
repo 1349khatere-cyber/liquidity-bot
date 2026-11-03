@@ -87,9 +87,9 @@ function simulateInstitutionalData(takerRatio, trend, price, ema200, cvd) {
   let topTrader = 50 + (takerRatio - 50) * 0.6 + (cvd > 0 ? 5 : -5);
   topTrader = Math.max(15, Math.min(85, topTrader));
 
-  let verdict = "⏳ انتظار (خنثی)";
-  if (takerRatio > 55 && topTrader < 45) verdict = "⚠️ تله خرید (هوشمند فروشنده)";
-  else if (takerRatio < 45 && topTrader > 55) verdict = "⚠️ تله فروش (هوشمند خریدار)";
+  let verdict = "⏳ انتظار";
+  if (takerRatio > 55 && topTrader < 45) verdict = "⚠️ تله خرید (فروشندگان برتر)";
+  else if (takerRatio < 45 && topTrader > 55) verdict = "⚠️ تله فروش (خریداران برتر)";
   else if (takerRatio > 55 && topTrader > 55) verdict = "🟢 خرید قوی (همسویی کامل)";
   else if (takerRatio < 45 && topTrader < 45) verdict = "🔴 فروش قوی (همسویی کامل)";
 
@@ -197,7 +197,7 @@ async function getMarketStatus(symbol, dynamicRisk) {
     status,
     reason,
     advanced: {
-      // ستون‌های قبلی
+      // داده‌های جدول قبلی (حفظ شده)
       takerRatio: flow.takerRatio,
       adx: Number.isFinite(adxVal) ? Number(adxVal.toFixed(1)) : 0,
       isOTE: isOTE ? "✅ بله" : "❌ خیر",
@@ -211,7 +211,7 @@ async function getMarketStatus(symbol, dynamicRisk) {
       trend1h: trend1h === "bull" ? "🟢" : "🔴",
       trend4h: trend4h === "bull" ? "🟢" : "🔴",
 
-      // ستون‌های جدید
+      // داده‌های جدید (اضافه شده)
       topTrader: instData.topTrader,
       oiDivergence: instData.oiDivergence,
       whaleWall: instData.whaleWall,
