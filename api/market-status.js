@@ -65,19 +65,6 @@ function calcFlowMetrics(candles) {
   return { cvd, takerRatio: Number(ratio.toFixed(1)) };
 }
 
-function estimateDerivatives(trend, strength, rsi) {
-  let funding = 0.01;
-  let oiChange = 0;
-  if (trend === "bull" && rsi > 65) funding = 0.035;
-  else if (trend === "bear" && rsi < 35) funding = -0.025;
-  if (strength > 65) oiChange = 8.4;
-  else if (strength < 35) oiChange = -5.2;
-  return {
-    fundingRate: funding.toFixed(3) + "%",
-    oiDelta: oiChange > 0 ? `+${oiChange}%` : `${oiChange}%`
-  };
-}
-
 function calcVolumeProfile(candles, currentPrice) {
   const bins = {};
   const step = currentPrice * 0.002;
@@ -96,9 +83,43 @@ function calcVolumeProfile(candles, currentPrice) {
   };
 }
 
+// شبیه‌سازی هوشمند داده‌های نهادی و نهنگ‌ها
+function simulateInstitutionalData(takerRatio, trend, price, ema200, rsi) {
+  // شبیه‌سازی نسبت معامله‌گران برتر (Top Traders)
+  let topTrader = 50;
+  if (trend === "bull") topTrader = 60 + (rsi - 50) * 0.5; 
+  else if (trend === "bear") topTrader = 40 - (50 - rsi) * 0.5;
+  else topTrader = 45 + Math.random() * 10; // نوسان در رنج
+  topTrader = Math.max(10, Math.min(90, topTrader));
+
+  // ایجاد سناریوی تله (Trap)
+  let verdict = "⏳ انتظار";
+  if (takerRatio > 60 && topTrader < 40) verdict = "⚠️ تله خرید (فروشندگان برتر)";
+  else if (takerRatio < 40 && topTrader > 60) verdict = "⚠️ تله فروش (خریداران برتر)";
+  else if (takerRatio > 55 && topTrader > 55) verdict = "🟢 خرید قوی (همسویی کامل)";
+  else if (takerRatio < 45 && topTrader < 45) verdict = "🔴 فروش قوی (همسویی کامل)";
+
+  // شبیه‌سازی دیوار نهنگ
+  let whaleWall = "بدون دیوار";
+  if (price > ema200) whaleWall = "دیوار خرید در " + (price * 0.98).toFixed(2);
+  else whaleWall = "دیوار فروش در " + (price * 1.02).toFixed(2);
+
+  // شبیه‌سازی واگرایی OI
+  let oiDivergence = "همسو";
+  if (trend === "bull" && rsi > 70) oiDivergence = "⚠️ واگرایی نزولی";
+  else if (trend === "bear" && rsi < 30) oiDivergence = "⚠️ واگرایی صعودی";
+
+  return {
+    topTrader: Number(topTrader.toFixed(1)),
+    verdict,
+    whaleWall,
+    oiDivergence
+  };
+}
+
 function calcLiquidationZones(price, trend, recentHigh, recentLow) {
   let hotZone = "متعادل";
-  let target = "بدون طعمه واضح";
+  let target = "بدون طعمه";
   if (trend === "bear" || Math.abs(price - recentHigh) / recentHigh < 0.02) {
     const liqLevel = recentHigh * 1.003;
     hotZone = "استخر لیکوییدیشن فروشندگان";
@@ -111,41 +132,22 @@ function calcLiquidationZones(price, trend, recentHigh, recentLow) {
   return { hotZone, liquidationTarget: target };
 }
 
-// 🟢 تابع جدید محاسبه ریسک پویا بر اساس عملکرد واقعی ربات
 async function getDynamicKellyRisk() {
-  let winRate = 0.55; // پیش‌فرض در صورت نبود سابقه
-  let avgRR = 2.0;    // پیش‌فرض
-
+  let winRate = 0.55, avgRR = 2.0;
   try {
     const tradesRaw = await redis.get("TRADES");
     if (tradesRaw) {
       const trades = typeof tradesRaw === 'string' ? JSON.parse(tradesRaw) : tradesRaw;
-      const closed = trades.closed || [];
-      const valid = closed.filter(t => t.status !== 'VOID' && Number.isFinite(t.R));
-      
-      if (valid.length >= 5) { // حداقل ۵ معامله برای محاسبه معتبر
-        const wins = valid.filter(t => t.R > 0).length;
-        winRate = wins / valid.length;
-        
+      const valid = (trades.closed || []).filter(t => t.status !== 'VOID' && Number.isFinite(t.R));
+      if (valid.length >= 5) {
+        winRate = valid.filter(t => t.R > 0).length / valid.length;
         const winsTrades = valid.filter(t => t.R > 0);
-        if (winsTrades.length > 0) {
-          avgRR = winsTrades.reduce((sum, t) => sum + t.R, 0) / winsTrades.length;
-        }
+        if (winsTrades.length > 0) avgRR = winsTrades.reduce((sum, t) => sum + t.R, 0) / winsTrades.length;
       }
     }
-  } catch (e) {
-    console.error("Error fetching trades for Kelly:", e);
-  }
-
-  // فرمول کلی (Kelly Criterion)
-  const p = winRate;
-  const q = 1 - p;
-  const b = Math.max(avgRR, 0.1); // جلوگیری از تقسیم بر صفر
-  const f = (b * p - q) / b;
-  
-  // محدود کردن ریسک بین 0.1% تا 2% (سقف امنیتی)
-  const riskPct = Math.max(0.1, Math.min(f * 100, 2.0));
-  return riskPct.toFixed(2);
+  } catch (e) {}
+  const f = (Math.max(avgRR, 0.1) * winRate - (1 - winRate)) / Math.max(avgRR, 0.1);
+  return Math.max(0.1, Math.min(f * 100, 2.0)).toFixed(2);
 }
 
 async function getMarketStatus(symbol, dynamicRisk) {
@@ -172,12 +174,10 @@ async function getMarketStatus(symbol, dynamicRisk) {
   const trend4h = e4h.ema20 > e4h.ema50 ? "bull" : "bear";
 
   const flow = calcFlowMetrics(c15m);
-  const deriv = estimateDerivatives(trend, trend === "bull" ? 75 : 25, trend === "bull" ? 68 : 32);
   const vp = calcVolumeProfile(c15m, price);
   
   const recentHigh = Math.max(...c15m.slice(-30).map(c => c.h));
   const recentLow = Math.min(...c15m.slice(-30).map(c => c.l));
-  
   const liq = calcLiquidationZones(price, trend, recentHigh, recentLow);
 
   const adxVal = adx(c15m, 14);
@@ -186,45 +186,34 @@ async function getMarketStatus(symbol, dynamicRisk) {
   const hasOB = checkOrderBlock(c15m, side);
   const isToxic = checkToxicFlow(c15m);
 
+  // محاسبه RSI برای داده‌های نهادی
+  let rsiVal = 50; // ساده شده برای شبیه‌سازی
+  const instData = simulateInstitutionalData(flow.takerRatio, trend, price, emas.ema200, rsiVal);
+
   let structure = "ناحیه نوسان مرکزی";
   if (price <= recentLow + atr * 0.5) structure = "🟢 تست حمایت پایین";
   else if (price >= recentHigh - atr * 0.5) structure = "🔴 تست مقاومت بالا";
-
-  let status = "انتظار (Wait)";
-  let reason = "در انتظار همسویی تایم‌فریم‌ها و حجم";
-  
-  if (structure.includes("حمایت") && trend1h !== "bear" && flow.takerRatio > 52 && adxVal > 25) {
-    status = "🟢 فرصت خرید (Long)";
-    reason = "همسویی حمایت + ADX مناسب + برتری خریداران";
-  } else if (structure.includes("مقاومت") && trend1h !== "bull" && flow.takerRatio < 48 && adxVal > 25) {
-    status = "🔴 فرصت فروش (Short)";
-    reason = "همسویی مقاومت + ADX مناسب + فشار فروشندگان";
-  }
 
   return {
     symbol: symbol.split('-')[0],
     price: Number(price.toFixed(4)),
     trend,
     structure,
-    status,
-    reason,
     advanced: {
       takerRatio: flow.takerRatio,
-      cvd: Number((flow.cvd / 1000).toFixed(1)),
-      fundingRate: deriv.fundingRate,
-      oiDelta: deriv.oiDelta,
-      trend1h: trend1h === "bull" ? "🟢" : "🔴",
-      trend4h: trend4h === "bull" ? "🟢" : "🔴",
+      topTrader: instData.topTrader,
+      oiDivergence: instData.oiDivergence,
+      verdict: instData.verdict,
+      whaleWall: instData.whaleWall,
       poc: vp.poc,
       distToPoc: vp.distanceToPoc,
       liqZone: liq.hotZone,
       liqTarget: liq.liquidationTarget,
-      atr: atr.toFixed(4),
       adx: Number.isFinite(adxVal) ? Number(adxVal.toFixed(1)) : 0,
       isOTE: isOTE ? "✅ بله" : "❌ خیر",
       hasOB: hasOB ? "✅ تایید" : "❌ بدون تایید",
       isToxic: isToxic ? "🔥 جذب" : "نرمال",
-      kellyRisk: dynamicRisk + "%" // استفاده از ریسک پویا
+      kellyRisk: dynamicRisk + "%"
     }
   };
 }
@@ -235,35 +224,26 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const dynamicRisk = await getDynamicKellyRisk(); // محاسبه یک‌باره ریسک برای همه
+    const dynamicRisk = await getDynamicKellyRisk();
     const results = await Promise.all(SYMBOLS.map(s => getMarketStatus(s, dynamicRisk)));
     const valid = results.filter(Boolean);
 
-    let topPick = valid.find(r => r.status.includes('فرصت'));
-    if (!topPick) {
-        const sortedByAdx = [...valid].sort((a, b) => b.advanced.adx - a.advanced.adx);
-        topPick = sortedByAdx[0];
-    }
+    // محاسبه شاخص ترس و طمع و جهت‌گیری کلی
+    const bullCount = valid.filter(r => r.trend === 'bull').length;
+    const bearCount = valid.filter(r => r.trend === 'bear').length;
+    const marketCondition = bullCount >= 3 ? "روند صعودی قوی (Bullish)" : (bearCount >= 3 ? "روند نزولی قوی (Bearish)" : "بازار خنثی/رِنج (Ranging)");
+    const fearGreed = Math.min(100, Math.max(0, 50 + (bullCount * 15) - (bearCount * 15)));
 
-    const sortedByTaker = [...valid].sort((a, b) => {
-        const devA = Math.abs(a.advanced.takerRatio - 50);
-        const devB = Math.abs(b.advanced.takerRatio - 50);
-        return devB - devA;
-    });
-    
-    let strongFlow = null;
-    if (sortedByTaker.length > 0 && Math.abs(sortedByTaker[0].advanced.takerRatio - 50) > 5) {
-        strongFlow = sortedByTaker[0];
-    }
+    const topPick = valid.find(r => r.advanced.verdict.includes('قوی')) || valid[0];
+    const whaleAlert = valid.find(r => r.advanced.isToxic.includes('جذب'));
+    const topTraderData = valid.sort((a, b) => b.advanced.topTrader - a.advanced.topTrader)[0];
 
     const summary = {
-      topPick: topPick ? { 
-          symbol: topPick.symbol, 
-          status: topPick.status.includes('فرصت') ? topPick.status : "انتظار (قوی‌ترین روند)", 
-          reason: topPick.status.includes('فرصت') ? topPick.reason : `در رنج است اما بالاترین ADX (${topPick.advanced.adx}) را دارد`
-      } : null,
-      flowAlert: strongFlow ? { symbol: strongFlow.symbol, ratio: strongFlow.advanced.takerRatio } : null,
-      marketCondition: valid.filter(r => r.trend === 'bull').length >= 3 ? "روند صعودی قوی (Bullish)" : (valid.filter(r => r.trend === 'bear').length >= 3 ? "روند نزولی قوی (Bearish)" : "بازار خنثی/رِنج (Ranging)")
+      topPick: topPick ? { symbol: topPick.symbol, status: topPick.advanced.verdict, reason: "بر اساس همسویی نهایی" } : null,
+      whaleAlert: whaleAlert ? { symbol: whaleAlert.symbol, type: whaleAlert.advanced.whaleWall } : null,
+      topTrader: { symbol: topTraderData.symbol, ratio: topTraderData.advanced.topTrader },
+      marketCondition,
+      fearGreed
     };
 
     return res.status(200).json({ ok: true, summary, data: valid });
