@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <!-- کارت‌های خلاصه (همان ۳ کارت قبلی، بدون تغییر) -->
+        <!-- کارت‌های خلاصه -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl"></div>
@@ -64,26 +64,41 @@
                 <table class="w-full text-right text-xs whitespace-nowrap">
                     <thead class="bg-gray-900/80 text-gray-400 uppercase tracking-wider font-bold">
                         <tr>
-                            <!-- ستون‌های قبلی -->
+                            <!-- 1. ستون نماد / قیمت -->
                             <th class="px-3 py-4 sticky right-0 bg-gray-900/90 backdrop-blur z-20 border-l border-gray-700/50">نماد / قیمت</th>
+                            <!-- 2. موقعیت -->
                             <th class="px-3 py-4">موقعیت</th>
+                            <!-- 3. همسویی -->
                             <th class="px-3 py-4">همسویی</th>
+                            <!-- 4. قدرت خریدار (تیکر) -->
                             <th class="px-3 py-4">قدرت خریدار</th>
-                            <th class="px-3 py-4">ADX</th>
-                            <th class="px-3 py-4">OTE (فیبو)</th>
-                            <th class="px-3 py-4">اوردر بلاک</th>
-                            <th class="px-3 py-4">جریان سمی</th>
-                            <th class="px-3 py-4">POC / فاصله</th>
-                            <th class="px-3 py-4">لیکوییدیشن / هدف</th>
-                            <!-- ستون‌های جدید اضافه شده -->
-                            <th class="px-3 py-4 text-purple-400">برتر (نهنگ)</th>
+                            <!-- 5. ستون جدید: معامله‌گر برتر -->
+                            <th class="px-3 py-4 text-purple-400">معامله‌گر برتر</th>
+                            <!-- 6. ستون جدید: واگرایی OI -->
                             <th class="px-3 py-4">واگرایی OI</th>
+                            <!-- 7. ADX -->
+                            <th class="px-3 py-4">ADX</th>
+                            <!-- 8. OTE -->
+                            <th class="px-3 py-4">OTE (فیبو)</th>
+                            <!-- 9. اوردر بلاک -->
+                            <th class="px-3 py-4">اوردر بلاک</th>
+                            <!-- 10. جریان سمی -->
+                            <th class="px-3 py-4">جریان سمی</th>
+                            <!-- 11. POC / فاصله -->
+                            <th class="px-3 py-4">POC / فاصله</th>
+                            <!-- 12. لیکوییدیشن / هدف -->
+                            <th class="px-3 py-4">لیکوییدیشن / هدف</th>
+                            <!-- 13. ستون جدید: دیوار نهنگ -->
                             <th class="px-3 py-4">دیوار نهنگ</th>
+                            <!-- 14. ستون جدید: CVD -->
                             <th class="px-3 py-4">CVD</th>
+                            <!-- 15. ستون جدید: فاندینگ/OI -->
                             <th class="px-3 py-4">فاندینگ/OI</th>
-                            <!-- ستون‌های پایانی -->
+                            <!-- 16. ریسک کلی -->
                             <th class="px-3 py-4">ریسک کلی</th>
+                            <!-- 17. وضعیت و دلیل -->
                             <th class="px-3 py-4">وضعیت و دلیل</th>
+                            <!-- 18. ستون جدید: حکم نهایی -->
                             <th class="px-3 py-4 bg-blue-900/50 text-blue-200 border-r border-blue-700/50">حکم نهایی</th>
                         </tr>
                     </thead>
@@ -139,8 +154,6 @@
                     renderTable(json.data);
                     badge.className = 'px-4 py-2 rounded-xl bg-emerald-900/50 text-emerald-300 text-sm font-bold border border-emerald-500/50';
                     badge.innerText = 'متصل (Live)';
-                } else {
-                     throw new Error("API Error");
                 }
             } catch (e) {
                 badge.className = 'px-4 py-2 rounded-xl bg-red-900/50 text-red-300 text-sm font-bold border border-red-500/50';
@@ -188,70 +201,81 @@
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-800/40 transition group">
-                        <!-- ستون‌های قبلی -->
+                        <!-- 1 -->
                         <td class="px-3 py-3 sticky right-0 bg-gray-900/90 group-hover:bg-gray-800/90 backdrop-blur z-10 border-l border-gray-700/50">
                             <div class="font-black text-white text-sm tracking-wide">${item.symbol}</div>
                             <div class="font-mono text-xs text-blue-400 mt-1">${item.price}</div>
                         </td>
+                        <!-- 2 -->
                         <td class="px-3 py-3">
                             <div class="font-medium text-gray-200 text-xs">${item.structure}</div>
                             <div class="text-[10px] text-gray-500 mt-1">${trendIcon} روند 15m</div>
                         </td>
+                        <!-- 3 -->
                         <td class="px-3 py-3 text-center text-lg">
                             ${adv.trend1h} ${adv.trend4h}
                         </td>
+                        <!-- 4 -->
                         <td class="px-3 py-3 font-mono font-bold ${takerColor}">
                             ${adv.takerRatio}%
                         </td>
+                        <!-- 5 (جدید) -->
+                        <td class="px-3 py-3 font-mono font-bold ${topTraderColor}">
+                            ${adv.topTrader}%
+                        </td>
+                        <!-- 6 (جدید) -->
+                        <td class="px-3 py-3 text-xs ${adv.oiDivergence.includes('⚠️') ? 'text-amber-400 font-bold' : 'text-gray-500'}">
+                            ${adv.oiDivergence}
+                        </td>
+                        <!-- 7 -->
                         <td class="px-3 py-3 font-mono font-bold ${adxColor}">
                             ${adv.adx}
                         </td>
+                        <!-- 8 -->
                         <td class="px-3 py-3 text-xs font-bold ${adv.isOTE.includes('بله') ? 'text-emerald-400' : 'text-gray-500'}">
                             ${adv.isOTE}
                         </td>
+                        <!-- 9 -->
                         <td class="px-3 py-3 text-xs font-bold ${adv.hasOB.includes('تایید') ? 'text-emerald-400' : 'text-gray-500'}">
                             ${adv.hasOB}
                         </td>
+                        <!-- 10 -->
                         <td class="px-3 py-3 text-xs font-bold ${adv.isToxic.includes('جذب') ? 'text-amber-400' : 'text-gray-500'}">
                             ${adv.isToxic}
                         </td>
+                        <!-- 11 -->
                         <td class="px-3 py-3">
                             <div class="font-mono text-xs text-purple-300">${adv.poc}</div>
                             <div class="text-[10px] text-gray-500">${pocDist}</div>
                         </td>
+                        <!-- 12 -->
                         <td class="px-3 py-3">
                             <div class="text-[11px] font-bold ${adv.liqZone.includes('لیکوییدیشن') ? 'text-amber-400' : 'text-gray-400'}">${adv.liqZone}</div>
                             <div class="text-[10px] text-amber-300 mt-1 font-mono">${adv.liqTarget}</div>
                         </td>
-
-                        <!-- ستون‌های جدید اضافه شده -->
-                        <td class="px-3 py-3 font-mono font-bold ${topTraderColor}">
-                            ${adv.topTrader}%
-                        </td>
-                        <td class="px-3 py-3 text-xs ${adv.oiDivergence.includes('⚠️') ? 'text-amber-400 font-bold' : 'text-gray-500'}">
-                            ${adv.oiDivergence}
-                        </td>
+                        <!-- 13 (جدید) -->
                         <td class="px-3 py-3 text-xs text-gray-400">
                             ${adv.whaleWall}
                         </td>
+                        <!-- 14 (جدید) -->
                         <td class="px-3 py-3 font-mono text-xs text-gray-400">
                             ${adv.cvd > 0 ? '🟢 +' : '🔴 '}${adv.cvd}k
                         </td>
+                        <!-- 15 (جدید) -->
                         <td class="px-3 py-3">
                             <div class="font-mono text-[10px] text-gray-400">FR: ${adv.fundingRate}</div>
                             <div class="font-mono text-[10px] text-gray-500">OI: ${adv.oiDelta}</div>
                         </td>
-
-                        <!-- ستون‌های پایانی -->
+                        <!-- 16 -->
                         <td class="px-3 py-3 font-mono text-emerald-400 font-bold text-xs">
                             ${adv.kellyRisk}
                         </td>
+                        <!-- 17 -->
                         <td class="px-3 py-3 max-w-[180px]">
                             <span class="px-2 py-1 rounded-lg text-[10px] font-bold ${statusClass} inline-block mb-1">${item.status}</span>
                             <div class="text-[10px] text-gray-400 leading-tight">${item.reason}</div>
                         </td>
-                        
-                        <!-- ستون حکم نهایی -->
+                        <!-- 18 (جدید) -->
                         <td class="px-3 py-3 border-r border-blue-700/30 bg-blue-900/10">
                             <span class="px-2 py-1 rounded-lg text-[11px] font-bold border ${verdictClass} inline-block shadow-sm">${adv.verdict}</span>
                         </td>
