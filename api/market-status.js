@@ -96,18 +96,24 @@ function calcVolumeProfile(candles, currentPrice) {
   };
 }
 
-function calcLiquidationZones(price, trend, atr) {
-  const longLiqPrice = price * (1 - 0.025);
-  const shortLiqPrice = price * (1 + 0.025);
+// 🟢 ارتقای منطق محاسبه استخر لیکوییدیشن با هدف قیمتی دقیق
+function calcLiquidationZones(price, trend, recentHigh, recentLow) {
   let hotZone = "متعادل";
   let target = "بدون طعمه واضح";
-  if (trend === "bear" && price > longLiqPrice * 1.02) {
-    hotZone = "استخر لیکوییدیشن خریداران";
-    target = `$${longLiqPrice.toFixed(4)} (جاذبه قوی)`;
-  } else if (trend === "bull" && price < shortLiqPrice * 0.98) {
+  
+  // اگر روند نزولی است یا قیمت به سقف نزدیک است، استاپ فروشندگان بالای سقف است
+  if (trend === "bear" || Math.abs(price - recentHigh) / recentHigh < 0.02) {
+    const liqLevel = recentHigh * 1.003; // کمی بالاتر از سقف
     hotZone = "استخر لیکوییدیشن فروشندگان";
-    target = `$${shortLiqPrice.toFixed(4)} (جاذبه قوی)`;
+    target = `تا $${liqLevel.toFixed(4)}`;
+  } 
+  // اگر روند صعودی است یا قیمت به کف نزدیک است، استاپ خریداران زیر کف است
+  else if (trend === "bull" || Math.abs(price - recentLow) / recentLow < 0.02) {
+    const liqLevel = recentLow * 0.997; // کمی پایین‌تر از کف
+    hotZone = "استخر لیکوییدیشن خریداران";
+    target = `تا $${liqLevel.toFixed(4)}`;
   }
+
   return { hotZone, liquidationTarget: target };
 }
 
@@ -137,8 +143,12 @@ async function getMarketStatus(symbol) {
   const flow = calcFlowMetrics(c15m);
   const deriv = estimateDerivatives(trend, trend === "bull" ? 75 : 25, trend === "bull" ? 68 : 32);
   const vp = calcVolumeProfile(c15m, price);
-  const liq = calcLiquidationZones(price, trend, atr);
   
+  const recentHigh = Math.max(...c15m.slice(-30).map(c => c.h));
+  const recentLow = Math.min(...c15m.slice(-30).map(c => c.l));
+  
+  const liq = calcLiquidationZones(price, trend, recentHigh, recentLow);
+
   const adxVal = adx(c15m, 14);
   const side = trend === "bull" ? "LONG" : "SHORT";
   const isOTE = checkOTE(c15m, side);
@@ -146,9 +156,6 @@ async function getMarketStatus(symbol) {
   const isToxic = checkToxicFlow(c15m);
   const kellyRisk = calculateKellyRisk(0.55, 2.0);
 
-  const recentHigh = Math.max(...c15m.slice(-30).map(c => c.h));
-  const recentLow = Math.min(...c15m.slice(-30).map(c => c.l));
-  
   let structure = "ناحیه نوسان مرکزی";
   if (price <= recentLow + atr * 0.5) structure = "🟢 تست حمایت پایین";
   else if (price >= recentHigh - atr * 0.5) structure = "🔴 تست مقاومت بالا";
@@ -201,16 +208,12 @@ export default async function handler(req, res) {
     const results = await Promise.all(SYMBOLS.map(getMarketStatus));
     const valid = results.filter(Boolean);
 
-    // 🟢 اصلاح ۱: پیدا کردن بهترین فرصت
     let topPick = valid.find(r => r.status.includes('فرصت'));
     if (!topPick) {
-        // اگر هیچ ارزی آماده معامله نبود، ارزی که بیشترین ADX (قوی‌ترین روند) دارد را انتخاب کن
         const sortedByAdx = [...valid].sort((a, b) => b.advanced.adx - a.advanced.adx);
         topPick = sortedByAdx[0];
     }
 
-    // 🟢 اصلاح ۲: پیدا کردن شدیدترین جریان سفارشات
-    // ارزی که نسبت Taker آن بیشترین فاصله را از ۵۰٪ دارد (یعنی یا خیلی خریدار داره یا خیلی فروشنده)
     const sortedByTaker = [...valid].sort((a, b) => {
         const devA = Math.abs(a.advanced.takerRatio - 50);
         const devB = Math.abs(b.advanced.takerRatio - 50);
@@ -218,7 +221,6 @@ export default async function handler(req, res) {
     });
     
     let strongFlow = null;
-    // اگر شدت جریان از ۵٪ بیشتر بود (یعنی زیر ۴۵ یا بالای ۵۵)، آن را نشان بده
     if (sortedByTaker.length > 0 && Math.abs(sortedByTaker[0].advanced.takerRatio - 50) > 5) {
         strongFlow = sortedByTaker[0];
     }
