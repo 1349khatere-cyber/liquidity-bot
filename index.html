@@ -119,6 +119,8 @@
                     renderTable(json.data);
                     badge.className = 'px-4 py-2 rounded-xl bg-emerald-900/50 text-emerald-300 text-sm font-bold border border-emerald-500/50';
                     badge.innerText = 'متصل (Live)';
+                } else {
+                    throw new Error(json.error || "API Error");
                 }
             } catch (e) {
                 badge.className = 'px-4 py-2 rounded-xl bg-red-900/50 text-red-300 text-sm font-bold border border-red-500/50';
@@ -154,7 +156,6 @@
             data.forEach(item => {
                 const adv = item.advanced;
                 
-                // رنگ‌بندی حکم نهایی
                 let verdictClass = 'bg-gray-800 text-gray-300 border-gray-700';
                 if (adv.verdict.includes('قوی')) verdictClass = 'bg-emerald-950/80 text-emerald-300 border-emerald-700/50';
                 else if (adv.verdict.includes('تله')) verdictClass = 'bg-red-950/80 text-red-400 border-red-700/50 font-bold animate-pulse';
@@ -189,7 +190,6 @@
                         </td>
                         <td class="px-3 py-3 text-xs font-bold ${adv.isToxic.includes('جذب') ? 'text-amber-400' : 'text-gray-600'}">${adv.isToxic}</td>
                         <td class="px-3 py-3 font-mono text-emerald-400 font-bold text-xs">${adv.kellyRisk}</td>
-                        <!-- ستون حکم نهایی -->
                         <td class="px-3 py-3">
                             <span class="px-2 py-1 rounded-lg text-[11px] border ${verdictClass} inline-block shadow-sm">${adv.verdict}</span>
                         </td>
