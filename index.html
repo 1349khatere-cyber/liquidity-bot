@@ -55,7 +55,6 @@
         <div class="glass-panel rounded-2xl shadow-2xl overflow-hidden border border-gray-700/50">
             <div class="p-5 border-b border-gray-700/50 flex flex-col sm:flex-row justify-between items-center gap-3">
                 <h2 class="text-lg font-bold">پایش لحظه‌ای بازار و سطوح کلیدی (15 دقیقه)</h2>
-                <!-- کانت‌دان شمارش معکوس -->
                 <span id="countdown-text" class="text-xs text-emerald-400 bg-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 border border-emerald-900/50 transition-all duration-300">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span>به‌روزرسانی خودکار در 30 ثانیه</span>
@@ -74,7 +73,7 @@
                             <th class="px-3 py-4">اوردر بلاک</th>
                             <th class="px-3 py-4">جریان سمی</th>
                             <th class="px-3 py-4">POC / فاصله</th>
-                            <th class="px-3 py-4">لیکوییدیشن</th>
+                            <th class="px-3 py-4">لیکوییدیشن / هدف</th>
                             <th class="px-3 py-4">ریسک کلی</th>
                             <th class="px-3 py-4">وضعیت و دلیل</th>
                         </tr>
@@ -91,7 +90,6 @@
         let countdown = 30;
         let timerInterval = null;
 
-        // شروع تایمر شمارش معکوس
         function startCountdown() {
             if (timerInterval) clearInterval(timerInterval);
             countdown = 30;
@@ -100,15 +98,13 @@
             timerInterval = setInterval(() => {
                 countdown--;
                 updateCountdownUI();
-                
                 if (countdown <= 0) {
-                    fetchAllData(); // زمان آپدیت فرا رسید
-                    countdown = 30; // ریست تایمر برای دور بعدی
+                    fetchAllData();
+                    countdown = 30;
                 }
             }, 1000);
         }
 
-        // آپدیت متن شمارش معکوس
         function updateCountdownUI() {
             const el = document.getElementById('countdown-text');
             if (el) {
@@ -116,13 +112,11 @@
             }
         }
 
-        // بروزرسانی دستی (وقتی کاربر دکمه را می‌زند)
         function manualRefresh() {
             fetchAllData();
-            startCountdown(); // تایمر را ریست کن
+            startCountdown();
         }
 
-        // دریافت داده‌ها از API
         async function fetchAllData() {
             const badge = document.getElementById('status-badge');
             badge.innerText = 'در حال بروزرسانی...';
@@ -206,8 +200,10 @@
                             <div class="font-mono text-xs text-purple-300">${adv.poc}</div>
                             <div class="text-[10px] text-gray-500">${pocDist}</div>
                         </td>
+                        <!-- بخش لیکوییدیشن و هدف -->
                         <td class="px-3 py-3">
                             <div class="text-[11px] font-bold ${adv.liqZone.includes('لیکوییدیشن') ? 'text-amber-400' : 'text-gray-400'}">${adv.liqZone}</div>
+                            <div class="text-[10px] text-amber-300 mt-1 font-mono">${adv.liqTarget}</div>
                         </td>
                         <td class="px-3 py-3 font-mono text-emerald-400 font-bold text-xs">
                             ${adv.kellyRisk}
@@ -221,7 +217,6 @@
             });
         }
 
-        // شروع اولیه
         fetchAllData();
         startCountdown();
     </script>
