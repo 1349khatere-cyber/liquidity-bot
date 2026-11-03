@@ -83,38 +83,28 @@ function calcVolumeProfile(candles, currentPrice) {
   };
 }
 
-// شبیه‌سازی هوشمند داده‌های نهادی و نهنگ‌ها
 function simulateInstitutionalData(takerRatio, trend, price, ema200, rsi) {
-  // شبیه‌سازی نسبت معامله‌گران برتر (Top Traders)
   let topTrader = 50;
   if (trend === "bull") topTrader = 60 + (rsi - 50) * 0.5; 
   else if (trend === "bear") topTrader = 40 - (50 - rsi) * 0.5;
-  else topTrader = 45 + Math.random() * 10; // نوسان در رنج
+  else topTrader = 45 + Math.random() * 10;
   topTrader = Math.max(10, Math.min(90, topTrader));
 
-  // ایجاد سناریوی تله (Trap)
   let verdict = "⏳ انتظار";
   if (takerRatio > 60 && topTrader < 40) verdict = "⚠️ تله خرید (فروشندگان برتر)";
   else if (takerRatio < 40 && topTrader > 60) verdict = "⚠️ تله فروش (خریداران برتر)";
   else if (takerRatio > 55 && topTrader > 55) verdict = "🟢 خرید قوی (همسویی کامل)";
   else if (takerRatio < 45 && topTrader < 45) verdict = "🔴 فروش قوی (همسویی کامل)";
 
-  // شبیه‌سازی دیوار نهنگ
   let whaleWall = "بدون دیوار";
   if (price > ema200) whaleWall = "دیوار خرید در " + (price * 0.98).toFixed(2);
   else whaleWall = "دیوار فروش در " + (price * 1.02).toFixed(2);
 
-  // شبیه‌سازی واگرایی OI
   let oiDivergence = "همسو";
   if (trend === "bull" && rsi > 70) oiDivergence = "⚠️ واگرایی نزولی";
   else if (trend === "bear" && rsi < 30) oiDivergence = "⚠️ واگرایی صعودی";
 
-  return {
-    topTrader: Number(topTrader.toFixed(1)),
-    verdict,
-    whaleWall,
-    oiDivergence
-  };
+  return { topTrader: Number(topTrader.toFixed(1)), verdict, whaleWall, oiDivergence };
 }
 
 function calcLiquidationZones(price, trend, recentHigh, recentLow) {
@@ -175,7 +165,6 @@ async function getMarketStatus(symbol, dynamicRisk) {
 
   const flow = calcFlowMetrics(c15m);
   const vp = calcVolumeProfile(c15m, price);
-  
   const recentHigh = Math.max(...c15m.slice(-30).map(c => c.h));
   const recentLow = Math.min(...c15m.slice(-30).map(c => c.l));
   const liq = calcLiquidationZones(price, trend, recentHigh, recentLow);
@@ -186,7 +175,6 @@ async function getMarketStatus(symbol, dynamicRisk) {
   const hasOB = checkOrderBlock(c15m, side);
   const isToxic = checkToxicFlow(c15m);
 
-  // محاسبه RSI برای داده‌های نهادی
   let rsiVal = 50; // ساده شده برای شبیه‌سازی
   const instData = simulateInstitutionalData(flow.takerRatio, trend, price, emas.ema200, rsiVal);
 
@@ -225,10 +213,14 @@ export default async function handler(req, res) {
 
   try {
     const dynamicRisk = await getDynamicKellyRisk();
-    const results = await Promise.all(SYMBOLS.map(s => getMarketStatus(s, dynamicRisk)));
+    const results = await Promise.all(SYMBOLS.map(async s => {
+        try { return await getMarketStatus(s, dynamicRisk); }
+        catch(e) { return null; }
+    }));
+    
     const valid = results.filter(Boolean);
+    if (valid.length === 0) throw new Error("No data fetched from exchange");
 
-    // محاسبه شاخص ترس و طمع و جهت‌گیری کلی
     const bullCount = valid.filter(r => r.trend === 'bull').length;
     const bearCount = valid.filter(r => r.trend === 'bear').length;
     const marketCondition = bullCount >= 3 ? "روند صعودی قوی (Bullish)" : (bearCount >= 3 ? "روند نزولی قوی (Bearish)" : "بازار خنثی/رِنج (Ranging)");
@@ -236,12 +228,12 @@ export default async function handler(req, res) {
 
     const topPick = valid.find(r => r.advanced.verdict.includes('قوی')) || valid[0];
     const whaleAlert = valid.find(r => r.advanced.isToxic.includes('جذب'));
-    const topTraderData = valid.sort((a, b) => b.advanced.topTrader - a.advanced.topTrader)[0];
+    const topTraderData = [...valid].sort((a, b) => b.advanced.topTrader - a.advanced.topTrader)[0];
 
     const summary = {
       topPick: topPick ? { symbol: topPick.symbol, status: topPick.advanced.verdict, reason: "بر اساس همسویی نهایی" } : null,
       whaleAlert: whaleAlert ? { symbol: whaleAlert.symbol, type: whaleAlert.advanced.whaleWall } : null,
-      topTrader: { symbol: topTraderData.symbol, ratio: topTraderData.advanced.topTrader },
+      topTrader: topTraderData ? { symbol: topTraderData.symbol, ratio: topTraderData.advanced.topTrader } : null,
       marketCondition,
       fearGreed
     };
