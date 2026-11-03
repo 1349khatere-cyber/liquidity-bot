@@ -15,7 +15,7 @@
     </style>
 </head>
 <body class="min-h-screen p-6">
-    <div class="max-w-[2200px] mx-auto space-y-6">
+    <div class="max-w-[2400px] mx-auto space-y-6">
         
         <!-- هدر -->
         <div class="flex flex-col md:flex-row justify-between items-center glass-panel rounded-2xl p-5 shadow-2xl">
@@ -32,22 +32,27 @@
             </div>
         </div>
 
-        <!-- کارت‌های خلاصه -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- کارت‌های خلاصه (۴ کارت) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
             <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl"></div>
-                <h3 class="text-gray-400 text-sm font-bold mb-3 flex items-center gap-2">🎯 بهترین فرصت</h3>
-                <div id="summary-top" class="text-lg font-black">در حال محاسبه...</div>
-            </div>
-            <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl"></div>
-                <h3 class="text-gray-400 text-sm font-bold mb-3 flex items-center gap-2">⚡ رادار جریان سفارشات</h3>
-                <div id="summary-flow" class="text-lg font-black">در حال محاسبه...</div>
+                <h3 class="text-gray-400 text-xs font-bold mb-3 flex items-center gap-2">🎯 بهترین فرصت</h3>
+                <div id="summary-top" class="text-sm font-black">در حال محاسبه...</div>
             </div>
             <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl"></div>
-                <h3 class="text-gray-400 text-sm font-bold mb-3 flex items-center gap-2">📊 رژیم کلی بازار</h3>
-                <div id="summary-market" class="text-lg font-black">در حال محاسبه...</div>
+                <h3 class="text-gray-400 text-xs font-bold mb-3 flex items-center gap-2">📊 رژیم و احساسات بازار</h3>
+                <div id="summary-market" class="text-sm font-black">در حال محاسبه...</div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl"></div>
+                <h3 class="text-gray-400 text-xs font-bold mb-3 flex items-center gap-2">🐋 رادار پول هوشمند (نهنگ‌ها)</h3>
+                <div id="summary-whale" class="text-sm font-black">در حال محاسبه...</div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl"></div>
+                <h3 class="text-gray-400 text-xs font-bold mb-3 flex items-center gap-2">⚖️ موقعیت معامله‌گران برتر</h3>
+                <div id="summary-toptrader" class="text-sm font-black">در حال محاسبه...</div>
             </div>
         </div>
 
@@ -71,7 +76,7 @@
                             <!-- 3. همسویی -->
                             <th class="px-3 py-4">همسویی</th>
                             <!-- 4. قدرت خریدار (تیکر) -->
-                            <th class="px-3 py-4">قدرت خریدار</th>
+                            <th class="px-3 py-4">تیکر (خرد)</th>
                             <!-- 5. ستون جدید: معامله‌گر برتر -->
                             <th class="px-3 py-4 text-purple-400">معامله‌گر برتر</th>
                             <!-- 6. ستون جدید: واگرایی OI -->
@@ -162,20 +167,29 @@
         }
 
         function renderSummary(summary) {
+            // کارت 1
             const topEl = document.getElementById('summary-top');
             if (summary.topPick) {
                 let c = summary.topPick.status.includes('خرید') ? 'text-emerald-400' : (summary.topPick.status.includes('فروش') ? 'text-red-400' : 'text-amber-400');
-                topEl.innerHTML = `<span class="${c}">${summary.topPick.symbol} — ${summary.topPick.status}</span><div class="text-xs text-gray-400 mt-2 font-normal leading-relaxed">${summary.topPick.reason}</div>`;
+                topEl.innerHTML = `<span class="${c}">${summary.topPick.symbol} — ${summary.topPick.status}</span><div class="text-[10px] text-gray-400 mt-1 font-normal leading-relaxed">${summary.topPick.reason}</div>`;
             }
 
-            const flowEl = document.getElementById('summary-flow');
-            if (summary.flowAlert) {
-                flowEl.innerHTML = `<span class="text-purple-400">${summary.flowAlert.symbol}</span><div class="text-xs text-gray-400 mt-2 font-normal">سلطه تیکر: ${summary.flowAlert.advanced.takerRatio}%</div>`;
-            } else {
-                flowEl.innerText = "جریان سفارشات نرمال است";
-            }
+            // کارت 2
+            const marketEl = document.getElementById('summary-market');
+            let fgColor = summary.fearGreed > 70 ? 'text-red-400' : (summary.fearGreed < 30 ? 'text-emerald-400' : 'text-gray-300');
+            marketEl.innerHTML = `<div class="text-[13px]">${summary.marketCondition}</div><div class="text-[11px] ${fgColor} mt-1 font-bold">ترس/طمع: ${summary.fearGreed}</div>`;
 
-            document.getElementById('summary-market').innerText = summary.marketCondition;
+            // کارت 3
+            const whaleEl = document.getElementById('summary-whale');
+            if (summary.whaleAlert) {
+                whaleEl.innerHTML = `<span class="text-amber-400">${summary.whaleAlert.symbol}</span><div class="text-[10px] text-gray-400 mt-1 font-normal">${summary.whaleAlert.type}</div>`;
+            } else { whaleEl.innerText = "فعالیت خاصی نیست"; }
+
+            // کارت 4
+            const ttEl = document.getElementById('summary-toptrader');
+            if (summary.topTrader) {
+                ttEl.innerHTML = `<span class="text-purple-400">${summary.topTrader.symbol}</span><div class="text-[10px] text-gray-400 mt-1 font-normal">برتری خرید: ${summary.topTrader.ratio}%</div>`;
+            }
         }
 
         function renderTable(data) {
@@ -187,7 +201,6 @@
                 if (item.status.includes('خرید')) statusClass = 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/50';
                 else if (item.status.includes('فروش')) statusClass = 'bg-red-950/80 text-red-300 border border-red-700/50';
 
-                // رنگ‌بندی برای حکم نهایی
                 let verdictClass = 'bg-gray-800 text-gray-300 border-gray-700';
                 if (adv.verdict.includes('قوی')) verdictClass = 'bg-emerald-950/80 text-emerald-300 border-emerald-700/50';
                 else if (adv.verdict.includes('تله')) verdictClass = 'bg-red-950/80 text-red-400 border-red-700/50 font-bold animate-pulse';
