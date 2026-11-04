@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Liquidity Hunter — Visual Signals</title>
+    <title>Liquidity Hunter — ICT Signals</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap');
@@ -26,13 +26,13 @@
 <body class="min-h-screen p-3 pb-10">
     <div class="max-w-md mx-auto space-y-5">
         
-        <!-- هدر گرافیکی -->
+        <!-- هدر -->
         <div class="flex flex-col items-center justify-center glass-panel rounded-3xl p-6 relative overflow-hidden">
             <div class="absolute -top-10 -right-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl"></div>
             <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl"></div>
             <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl font-black text-white mb-3 shadow-lg">LH</div>
-            <h1 class="text-2xl font-black text-white glow-text">رادار بصری سیگنال‌ها</h1>
-            <p class="text-xs text-gray-400 mb-4">مرتب‌شده بر اساس بهترین کیفیت و اجماع</p>
+            <h1 class="text-2xl font-black text-white glow-text">رادار سیگنال‌های ICT</h1>
+            <p class="text-xs text-gray-400 mb-4">سطوح ساختاری ثابت (SMC/ICT)</p>
             <div class="flex items-center gap-2 w-full z-10">
                 <span id="status-badge" class="flex-1 py-2 rounded-xl bg-gray-800/80 text-xs font-bold border border-gray-700 text-center">در حال اتصال...</span>
                 <button onclick="manualRefresh()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl text-xs font-bold transition shadow-lg">بروزرسانی</button>
@@ -43,7 +43,7 @@
             </div>
         </div>
 
-        <!-- لیست کارت‌های گرافیکی -->
+        <!-- کارت‌ها -->
         <div id="cards-container" class="space-y-6"></div>
 
     </div>
@@ -157,14 +157,30 @@
                 if (displayScore >= 70) gaugeColor = 'stroke-emerald-500';
                 else if (displayScore < 40) gaugeColor = 'stroke-red-500';
 
-                // 🟢 محاسبه نقطه ورود ثابت بر اساس POC (نقطه تعادل حجم) و ساختار
+                // 🟢 محاسبه سطوح ساختاری ثابت (ICT/SMC)
+                const currentPrice = parseFloat(item.price);
                 const pocPrice = parseFloat(adv.poc);
-                // برای خرید، نقطه ورود کمی پایین‌تر از POC است. برای فروش کمی بالاتر.
-                const entryPrice1 = isShort ? (pocPrice * 1.002).toFixed(4) : (pocPrice * 0.998).toFixed(4);
-                const entryPrice2 = isShort ? (pocPrice * 1.005).toFixed(4) : (pocPrice * 0.995).toFixed(4);
-                
-                // حد ضرر بر اساس ساختار POC (حدود 1.5 درصد فاصله)
-                const slPrice = isShort ? (pocPrice * 1.015).toFixed(4) : (pocPrice * 0.985).toFixed(4);
+                const liqTarget = parseFloat(adv.liqTarget.replace('تا $', ''));
+                const atrValue = parseFloat(adv.atr) || (currentPrice * 0.01);
+
+                let entryPrice, slPrice, tpPrice;
+
+                if (isLong) {
+                    // برای خرید: ورود کمی بالاتر از POC (منطقه تقاضا)، حد ضرر زیر POC، هدف استخر لیکوییدیشن
+                    entryPrice = (pocPrice * 1.002).toFixed(4);
+                    slPrice = (pocPrice * 0.985).toFixed(4); // 1.5% زیر POC
+                    tpPrice = liqTarget.toFixed(4);
+                } else if (isShort) {
+                    // برای فروش: ورود کمی پایین‌تر از POC (منطقه عرضه)، حد ضرر بالای POC، هدف استخر لیکوییدیشن
+                    entryPrice = (pocPrice * 0.998).toFixed(4);
+                    slPrice = (pocPrice * 1.015).toFixed(4); // 1.5% بالای POC
+                    tpPrice = liqTarget.toFixed(4);
+                } else {
+                    // برای انتظار: ورود در POC، حد ضرر بر اساس ATR
+                    entryPrice = pocPrice.toFixed(4);
+                    slPrice = (pocPrice - atrValue * 1.5).toFixed(4); // حد ضرر بر اساس ATR
+                    tpPrice = (pocPrice + atrValue * 3).toFixed(4); // هدف بر اساس ATR
+                }
 
                 let rankColor = 'bg-gray-700 text-gray-300';
                 if (rank === 1) rankColor = 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black shadow-lg shadow-yellow-500/50';
@@ -217,15 +233,19 @@
                             <div class="text-[9px] text-center text-gray-500 mt-1 font-bold">تیکر: ${adv.takerRatio}% | نهنگ: ${adv.topTrader}%</div>
                         </div>
 
-                        <!-- 🟢 باکس ورود و خروج ثابت‌شده -->
-                        <div class="relative z-10 grid grid-cols-2 gap-2 text-center">
+                        <!-- 🟢 سطوح ساختاری ثابت -->
+                        <div class="relative z-10 grid grid-cols-3 gap-2 text-center">
                             <div class="bg-blue-950/40 border border-blue-500/30 rounded-lg p-2">
-                                <div class="text-[10px] text-blue-300 font-bold mb-1">📍 محدوده ورود (Entry)</div>
-                                <div class="text-sm font-mono font-black text-white">${entryPrice1} <br><span class="text-[9px] text-gray-400">تا ${entryPrice2}</span></div>
+                                <div class="text-[10px] text-blue-300 font-bold mb-1">📍 ورود (Entry)</div>
+                                <div class="text-sm font-mono font-black text-white">${entryPrice}</div>
                             </div>
                             <div class="bg-red-950/40 border border-red-500/30 rounded-lg p-2">
                                 <div class="text-[10px] text-red-300 font-bold mb-1">🛑 حد ضرر (SL)</div>
                                 <div class="text-sm font-mono font-black text-white">${slPrice}</div>
+                            </div>
+                            <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-lg p-2">
+                                <div class="text-[10px] text-emerald-300 font-bold mb-1">🎯 هدف (TP)</div>
+                                <div class="text-sm font-mono font-black text-white">${tpPrice}</div>
                             </div>
                         </div>
 
