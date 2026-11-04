@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Liquidity Hunter — ICT Conditional Signals</title>
+    <title>Liquidity Hunter — ICT Signals</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap');
@@ -26,13 +26,12 @@
 <body class="min-h-screen p-3 pb-10">
     <div class="max-w-md mx-auto space-y-5">
         
-        <!-- هدر -->
         <div class="flex flex-col items-center justify-center glass-panel rounded-3xl p-6 relative overflow-hidden">
             <div class="absolute -top-10 -right-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl"></div>
             <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl"></div>
             <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl font-black text-white mb-3 shadow-lg">LH</div>
             <h1 class="text-2xl font-black text-white glow-text">سیگنال‌های شرطی ICT</h1>
-            <p class="text-xs text-gray-400 mb-4">ستاپ‌های ساخته‌شده بر اساس سطوح ساختاری (Limit Orders)</p>
+            <p class="text-xs text-gray-400 mb-4">ستاپ‌های ساخته‌شده بر اساس سطوح ساختاری</p>
             <div class="flex items-center gap-2 w-full z-10">
                 <span id="status-badge" class="flex-1 py-2 rounded-xl bg-gray-800/80 text-xs font-bold border border-gray-700 text-center">در حال اتصال...</span>
                 <button onclick="manualRefresh()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-2 rounded-xl text-xs font-bold transition shadow-lg">بروزرسانی</button>
@@ -43,9 +42,7 @@
             </div>
         </div>
 
-        <!-- کارت‌ها -->
         <div id="cards-container" class="space-y-6"></div>
-
     </div>
 
     <script>
@@ -126,15 +123,12 @@
                 let statusColor = 'text-amber-400';
 
                 const currentPrice = parseFloat(item.price);
-                const pocPrice = parseFloat(adv.poc);
-                const liqTarget = parseFloat(adv.liqTarget.replace('تا $', ''));
                 const atrValue = parseFloat(adv.atr) || (currentPrice * 0.01);
                 
-                // 🎯 منطق ICT: تعریف سطوح کلیدی ساختاری
-                // سطح مقاومت: بالاترین قیمت بین POC و هدف لیکوییدیشن به علاوه نیمی از ATR
-                const resistanceLevel = Math.max(pocPrice, liqTarget) + atrValue * 0.5;
-                // سطح حمایت: پایین‌ترین قیمت بین POC و هدف لیکوییدیشن منهای نیمی از ATR
-                const supportLevel = Math.min(pocPrice, liqTarget) - atrValue * 0.5;
+                // 🟢 استفاده از سطوح ساختاری واقعی برای محاسبه ستاپ
+                const supportLevel = parseFloat(adv.nearestSupport);
+                const resistanceLevel = parseFloat(adv.nearestResistance);
+                const liqTarget = parseFloat(adv.liqTarget.replace('تا $', ''));
                 
                 let entryPrice, slPrice, tpPrice, setupText, setupCondition;
 
@@ -145,7 +139,8 @@
                     statusText = 'ستاپ خرید (Long)';
                     statusColor = 'text-emerald-400 glow-text-green';
                     
-                    entryPrice = supportLevel.toFixed(4);
+                    // ورود روی حمایت ساختاری (یا اگر قیمت بالاتر بود، همان قیمت فعلی)
+                    entryPrice = Math.min(currentPrice, supportLevel).toFixed(4);
                     slPrice = (supportLevel - atrValue * 1.5).toFixed(4);
                     tpPrice = liqTarget.toFixed(4);
                     setupText = 'BUY LIMIT';
@@ -157,7 +152,8 @@
                     statusText = 'ستاپ فروش (Short)';
                     statusColor = 'text-red-400 glow-text-red';
                     
-                    entryPrice = resistanceLevel.toFixed(4);
+                    // ورود روی مقاومت ساختاری (یا اگر قیمت پایین‌تر بود، همان قیمت فعلی)
+                    entryPrice = Math.max(currentPrice, resistanceLevel).toFixed(4);
                     slPrice = (resistanceLevel + atrValue * 1.5).toFixed(4);
                     tpPrice = liqTarget.toFixed(4);
                     setupText = 'SELL LIMIT';
@@ -175,10 +171,9 @@
                     setupText = 'NO TRADE';
                     setupCondition = 'وضعیت تله است؛ ورود در این ناحیه ممنوع می‌باشد.';
                 } else {
-                    // حالت انتظار: سطوح بر اساس POC و ATR
-                    entryPrice = pocPrice.toFixed(4);
-                    slPrice = (pocPrice - atrValue * 1.5).toFixed(4);
-                    tpPrice = (pocPrice + atrValue * 3).toFixed(4);
+                    entryPrice = currentPrice.toFixed(4);
+                    slPrice = (currentPrice - atrValue * 1.5).toFixed(4);
+                    tpPrice = (currentPrice + atrValue * 3).toFixed(4);
                     setupText = 'WAIT';
                     setupCondition = 'داده‌ها اجماع کافی ندارند؛ در انتظار تشکیل ستاپ معتبر بمانید.';
                 }
@@ -200,7 +195,6 @@
                     <div class="glass-panel rounded-2xl p-5 relative overflow-hidden ${cardBorder} transition-all duration-300">
                         <div class="absolute inset-0 bg-gradient-to-b ${bgGradient}"></div>
                         
-                        <!-- هدر کارت -->
                         <div class="relative z-10 flex justify-between items-start mb-4">
                             <div>
                                 <div class="flex items-center gap-2">
@@ -216,7 +210,6 @@
                             </div>
                         </div>
 
-                        <!-- امتیاز اجماع -->
                         <div class="relative z-10 flex items-center gap-4 bg-gray-900/50 p-3 rounded-xl border border-gray-700/50 mb-4">
                             <div class="relative w-14 h-14 flex-shrink-0">
                                 <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
@@ -233,7 +226,6 @@
                             </div>
                         </div>
 
-                        <!-- نوار قدرت -->
                         <div class="relative z-10 mb-4">
                             <div class="flex justify-between text-[10px] font-bold mb-1">
                                 <span class="text-emerald-400">خریدار: ${takerPercent}%</span>
@@ -245,7 +237,6 @@
                             <div class="text-[9px] text-center text-gray-500 mt-1 font-bold">تیکر: ${adv.takerRatio}% | نهنگ: ${adv.topTrader}%</div>
                         </div>
 
-                        <!-- 🟢 سطوح شرطی (ICT Limit Orders) -->
                         <div class="relative z-10 bg-gray-950/80 border border-blue-500/30 rounded-xl p-3 mb-4">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-xs font-black text-blue-300">⚡ ${setupText}</span>
