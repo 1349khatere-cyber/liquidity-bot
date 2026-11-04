@@ -141,7 +141,7 @@
                 container.innerHTML += `
                     <div class="glass-panel rounded-xl p-4 shadow-xl border-t-4 ${adv.verdict.includes('قوی') ? 'border-t-emerald-500' : (adv.verdict.includes('تله') ? 'border-t-red-500' : 'border-t-gray-500')}">
                         
-                        <!-- هدر کارت: نماد، قیمت، و حکم -->
+                        <!-- هدر کارت -->
                         <div class="flex justify-between items-center border-b border-gray-600/50 pb-3 mb-3">
                             <div>
                                 <div class="font-black text-white text-2xl">${item.symbol}</div>
@@ -156,73 +156,74 @@
                             </div>
                         </div>
 
-                        <!-- ۳ فاکتور اصلی با فونت درشت -->
+                        <!-- ۳ فاکتور اصلی -->
                         <div class="grid grid-cols-3 gap-2 mb-4 text-center">
-                            <div class="bg-gray-800 rounded-lg p-2 border border-gray-700">
-                                <div class="text-[11px] text-gray-400 mb-1 font-bold">تیکر (خرد)</div>
+                            <div class="bg-gray-800 rounded-lg p-2 border border-gray-700 flex flex-col justify-center">
+                                <div class="text-[10px] text-gray-400 mb-1 font-bold">تیکر (خرد)</div>
                                 <div class="font-black text-base ${takerColor}">${adv.takerRatio}%</div>
                             </div>
-                            <div class="bg-gray-800 rounded-lg p-2 border border-gray-700">
-                                <div class="text-[11px] text-gray-400 mb-1 font-bold">برتر (نهنگ)</div>
+                            <div class="bg-gray-800 rounded-lg p-2 border border-gray-700 flex flex-col justify-center">
+                                <div class="text-[10px] text-gray-400 mb-1 font-bold">برتر (نهنگ)</div>
                                 <div class="font-black text-base ${topTraderColor}">${adv.topTrader}%</div>
                             </div>
-                            <div class="bg-gray-800 rounded-lg p-2 border border-gray-700">
-                                <div class="text-[11px] text-gray-400 mb-1 font-bold">ADX</div>
+                            <div class="bg-gray-800 rounded-lg p-2 border border-gray-700 flex flex-col justify-center">
+                                <div class="text-[10px] text-gray-400 mb-1 font-bold">ADX</div>
                                 <div class="font-black text-base ${adxColor}">${adv.adx}</div>
+                                <div class="text-[9px] text-gray-500 font-normal mt-0.5">قدرت روند</div>
                             </div>
                         </div>
 
-                        <!-- لیست تمام ۱۷ مورد (فونت بزرگ و خوانا) -->
+                        <!-- لیست تمام موارد (فونت بزرگ و خوانا) -->
                         <div class="space-y-2 text-sm">
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">موقعیت (ساختار):</span>
                                 <span class="font-bold text-gray-200">${item.structure}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">واگرایی OI:</span>
                                 <span class="font-bold ${adv.oiDivergence.includes('⚠️') ? 'text-amber-400' : 'text-gray-200'}">${adv.oiDivergence}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">OTE (فیبو):</span>
                                 <span class="font-bold ${adv.isOTE.includes('بله') ? 'text-emerald-400' : 'text-gray-400'}">${adv.isOTE}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">اوردر بلاک:</span>
                                 <span class="font-bold ${adv.hasOB.includes('تایید') ? 'text-emerald-400' : 'text-gray-400'}">${adv.hasOB}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">جریان سمی:</span>
                                 <span class="font-bold ${adv.isToxic.includes('جذب') ? 'text-amber-400' : 'text-gray-400'}">${adv.isToxic}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
-                                <span class="text-gray-400">CVD:</span>
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
+                                <span class="text-gray-400">CVD <span class="text-[10px] text-gray-500">(فشار خالص)</span>:</span>
                                 <span class="font-bold ${adv.cvd > 0 ? 'text-emerald-400' : 'text-red-400'}">${adv.cvd > 0 ? '🟢 +' : '🔴 '}${adv.cvd}k</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">دیوار نهنگ:</span>
                                 <span class="font-bold text-gray-200">${adv.whaleWall}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">فاندینگ/OI:</span>
                                 <span class="font-bold font-mono text-gray-200">FR: ${adv.fundingRate} <span class="text-gray-500 mx-1">|</span> OI: ${adv.oiDelta}</span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 items-center">
                                 <span class="text-gray-400">POC / فاصله:</span>
                                 <span class="font-bold font-mono text-purple-300">${adv.poc} <span class="text-gray-500 text-xs">(${adv.distToPoc})</span></span>
                             </div>
-                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 bg-amber-900/20 px-1 rounded">
+                            <div class="flex justify-between border-b border-gray-700/50 pb-1.5 bg-amber-900/20 px-2 py-1 rounded items-center">
                                 <span class="text-amber-500 font-bold">لیکوییدیشن / هدف:</span>
                                 <span class="font-bold text-amber-300 font-mono text-xs text-left">${adv.liqZone} <br> ${adv.liqTarget}</span>
                             </div>
                         </div>
 
-                        <!-- فوتر کارت: دلیل و ریسک -->
+                        <!-- فوتر کارت -->
                         <div class="mt-3 bg-gray-900 rounded-lg p-3 text-xs flex flex-col gap-2">
                             <div class="text-gray-300 leading-relaxed font-medium">
                                 <span class="text-gray-500 font-bold">دلیل ربات:</span> ${item.reason}
                             </div>
                             <div class="flex justify-between items-center border-t border-gray-700 pt-2">
-                                <span class="text-gray-500 font-bold">وضعیت فعلی:</span>
+                                <span class="text-gray-500 font-bold">وضعیت:</span>
                                 <span class="px-2 py-1 rounded-lg text-xs font-bold ${item.status.includes('خرید') ? 'bg-emerald-950 text-emerald-300' : (item.status.includes('فروش') ? 'bg-red-950 text-red-300' : 'bg-amber-950 text-amber-300')}">${item.status}</span>
                                 <span class="text-emerald-400 font-mono font-black bg-emerald-900/30 px-2 py-1 rounded border border-emerald-800/50">ریسک: ${adv.kellyRisk}</span>
                             </div>
