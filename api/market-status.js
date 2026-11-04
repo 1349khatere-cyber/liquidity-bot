@@ -162,8 +162,12 @@ async function getMarketStatus(symbol, dynamicRisk) {
 
   const flow = calcFlowMetrics(c15m);
   const vp = calcVolumeProfile(c15m, price);
-  const recentHigh = Math.max(...c15m.slice(-30).map(c => c.h));
-  const recentLow = Math.min(...c15m.slice(-30).map(c => c.l));
+  
+  // پیدا کردن سطوح ساختاری واقعی از 30 کندل اخیر
+  const recentCandles = c15m.slice(-30);
+  const recentHigh = Math.max(...recentCandles.map(c => c.h));
+  const recentLow = Math.min(...recentCandles.map(c => c.l));
+  
   const liq = calcLiquidationZones(price, trend, recentHigh, recentLow);
 
   const adxVal = adx(c15m, 14);
@@ -181,13 +185,17 @@ async function getMarketStatus(symbol, dynamicRisk) {
   let status = "انتظار (Wait)";
   let reason = "در انتظار همسویی تایم‌فریم‌ها و حجم";
   
-  if (structure.includes("حمایت") && trend1h !== "bear" && flow.takerRatio > 52 && adxVal > 25) {
+  if (structure.includes("حمایت") && trend1h !== "bear" && flow.takerRatio > 52 && adxVal > 18) {
     status = "🟢 فرصت خرید (Long)";
     reason = "همسویی حمایت + ADX مناسب + برتری خریداران";
-  } else if (structure.includes("مقاومت") && trend1h !== "bull" && flow.takerRatio < 48 && adxVal > 25) {
+  } else if (structure.includes("مقاومت") && trend1h !== "bull" && flow.takerRatio < 48 && adxVal > 18) {
     status = "🔴 فرصت فروش (Short)";
     reason = "همسویی مقاومت + ADX مناسب + فشار فروشندگان";
   }
+
+  // اضافه کردن سطوح حمایت و مقاومت واقعی به خروجی
+  const nearestSupport = recentLow;
+  const nearestResistance = recentHigh;
 
   return {
     symbol: symbol.split('-')[0],
@@ -197,7 +205,6 @@ async function getMarketStatus(symbol, dynamicRisk) {
     status,
     reason,
     advanced: {
-      // داده‌های جدول قبلی (حفظ شده)
       takerRatio: flow.takerRatio,
       adx: Number.isFinite(adxVal) ? Number(adxVal.toFixed(1)) : 0,
       isOTE: isOTE ? "✅ بله" : "❌ خیر",
@@ -210,15 +217,16 @@ async function getMarketStatus(symbol, dynamicRisk) {
       kellyRisk: dynamicRisk + "%",
       trend1h: trend1h === "bull" ? "🟢" : "🔴",
       trend4h: trend4h === "bull" ? "🟢" : "🔴",
-
-      // داده‌های جدید (اضافه شده)
       topTrader: instData.topTrader,
       oiDivergence: instData.oiDivergence,
       whaleWall: instData.whaleWall,
       verdict: instData.verdict,
       cvd: Number((flow.cvd / 1000).toFixed(1)),
       fundingRate: (trend === "bull" ? 0.015 : -0.015).toFixed(3) + "%",
-      oiDelta: (instData.topTrader > 50 ? "+5.2%" : "-4.1%")
+      oiDelta: (instData.topTrader > 50 ? "+5.2%" : "-4.1%"),
+      atr: atr.toFixed(4),
+      nearestSupport: Number(nearestSupport.toFixed(4)), // ارسال به فرانت‌اند
+      nearestResistance: Number(nearestResistance.toFixed(4)) // ارسال به فرانت‌اند
     }
   };
 }
