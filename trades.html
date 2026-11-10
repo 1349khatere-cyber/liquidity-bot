@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquidity Hunter | داشبورد سیگنال‌ها</title>
+    <style>
+        :root {
+            --bg-color: #131722;
+            --card-bg: #1e222d;
+            --text-main: #d1d4dc;
+            --text-muted: #787b86;
+            --green: #089981;
+            --red: #f23645;
+            --border: #2a2e39;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2, h3 { margin: 0; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .header h1 { font-size: 24px; color: #fff; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+        .stat-card .value { font-size: 22px; font-weight: bold; margin-top: 5px; }
+        
+        .day-section { margin-bottom: 30px; }
+        .day-header { display: flex; justify-content: space-between; align-items: center; background-color: var(--card-bg); padding: 10px 15px; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; }
+        .day-header h3 { font-size: 16px; color: #fff; }
+        
+        table { width: 100%; border-collapse: collapse; background-color: var(--card-bg); border-radius: 0 0 8px 8px; overflow: hidden; border: 1px solid var(--border); }
+        th, td { padding: 12px 15px; text-align: center; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th { background-color: #2a2e39; color: var(--text-muted); font-weight: normal; }
+        tr:last-child td { border-bottom: none; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; }
+        .badge-long { background-color: rgba(8, 153, 129, 0.2); color: var(--green); }
+        .badge-short { background-color: rgba(242, 54, 69, 0.2); color: var(--red); }
+        
+        .profit { color: var(--green); font-weight: bold; }
+        .loss { color: var(--red); font-weight: bold; }
+        .neutral { color: var(--text-muted); }
+        
+        .footer-status { text-align: center; margin-top: 20px; padding: 15px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
+        .loading { text-align: center; font-size: 18px; color: var(--text-muted); margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>⚡ Liquidity Hunter | داشبورد سیگنال‌ها</h1>
+        <div id="last-update" style="color: var(--text-muted); font-size: 12px;">در حال بارگذاری...</div>
+    </div>
+
+    <div class="stats-grid" id="stats-grid">
+        <!-- کارت‌های آماری با جاوااسکریپت پر می‌شوند -->
+    </div>
+
+    <div id="tables-container">
+        <div class="loading">⏳ در حال دریافت اطلاعات...</div>
+    </div>
+
+    <div class="footer-status" id="footer-status">
+        در حال محاسبه آخرین وضعیت...
+    </div>
+
+    <script>
+        async function fetchData() {
+            try {
+                // آدرس API خودتان را اینجا وارد کنید (اگر دامنه دیگری است)
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                if (!data.ok) throw new Error("API Error");
+
+                renderDashboard(data.trades);
+                document.getElementById('last-update').innerText = "آخرین بروزرسانی: " + new Date().toLocaleTimeString('fa-IR');
+            } catch (error) {
+                console.error("Fetch error:", error);
+                document.getElementById('tables-container').innerHTML = `<div class="loading" style="color:var(--red)">❌ خطا در ارتباط با سرور</div>`;
+            }
+        }
+
+        function renderDashboard(trades) {
+            const container = document.getElementById('tables-container');
+            const statsGrid = document.getElementById('stats-grid');
+            container.innerHTML = ''; // پاک کردن حالت لودینگ
+
+            if (trades.length === 0) {
+                container.innerHTML = '<div class="loading">هیچ معامله‌ای در ۳ روز اخیر ثبت نشده است.</div>';
+                return;
+            }
+
+            // گروه‌بندی بر اساس روز
+            const grouped = {};
+            let totalProfitPct = 0;
+            let wins = 0;
+            let validTradesCount = 0;
+
+            trades.forEach(t => {
+                const dateObj = new Date(t.sentAt || t.closedAt || Date.now());
+                // تبدیل تاریخ به فرمت YYYY-MM-DD برای گروه‌بندی
+                const dateKey = dateObj.toLocaleDateString('en-CA'); // مثلا 2026-11-10
+                
+                if (!grouped[dateKey]) grouped[dateKey] = [];
+                grouped[dateKey].push(t);
+
+                // محاسبه آمار کلی (فقط برای معاملات بسته شده)
+                if (t.status !== "OPEN" && t.entry && t.exitPrice) {
+                    const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
+                    totalProfitPct += pct;
+                    if (pct > 0) wins++;
+                    validTradesCount++;
+                }
+            });
+
+            // رندر کارت‌های آماری
+            const winRate = validTradesCount > 0 ? (wins / validTradesCount * 100).toFixed(1) : 0;
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div>سود کل (۳ روز)</div>
+                    <div class="value ${totalProfitPct >= 0 ? 'profit' : 'loss'}">${totalProfitPct >= 0 ? '+' : ''}${totalProfitPct.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div>وین‌ریت (Win Rate)</div>
+                    <div class="value">${winRate}%</div>
+                </div>
+                <div class="stat-card">
+                    <div>کل معاملات</div>
+                    <div class="value">${validTradesCount}</div>
+                </div>
+            `;
+
+            // رندر جدول‌ها برای هر روز
+            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)); // جدیدترین روز اول
+
+            sortedDates.forEach((dateKey, index) => {
+                const dayTrades = grouped[dateKey];
+                
+                // محاسبه سود روز
+                let dayProfit = 0;
+                dayTrades.forEach(t => {
+                    if (t.status !== "OPEN" && t.entry && t.exitPrice) {
+                        dayProfit += ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
+                    }
+                });
+
+                let dayTitle = index === 0 ? "امروز" : index === 1 ? "دیروز" : "دو روز پیش";
+                const persianDate = new Date(dateKey).toLocaleDateString('fa-IR');
+
+                let rowsHtml = '';
+                dayTrades.forEach(t => {
+                    const sideClass = t.side === "LONG" ? "badge-long" : "badge-short";
+                    const sideText = t.side === "LONG" ? "🟢 خرید" : "🔴 فروش";
+                    
+                    let statusHtml = '';
+                    
+                    if (t.status === "OPEN") {
+                        statusHtml = `<span class="neutral">⏳ در جریان</span>`;
+                    } else {
+                        let pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
+                        const pClass = pct >= 0 ? 'profit' : 'loss';
+                        statusHtml = `<span class="${pClass}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% (بسته شد)</span>`;
+                    }
+
+                    rowsHtml += `
+                        <tr>
+                            <td>#${t.signalId || '—'}</td>
+                            <td>${t.symbol}</td>
+                            <td><span class="badge ${sideClass}">${sideText}</span></td>
+                            <td>${t.entry ? t.entry.toFixed(6) : '—'}</td>
+                            <td>${t.tp ? t.tp.toFixed(6) : '—'}</td>
+                            <td>${t.sl ? t.sl.toFixed(6) : '—'}</td>
+                            <td style="font-weight:bold;">${statusHtml}</td>
+                        </tr>
+                    `;
+                });
+
+                const profitClass = dayProfit >= 0 ? 'profit' : 'loss';
+                const profitSign = dayProfit >= 0 ? '+' : '';
+
+                container.innerHTML += `
+                    <div class="day-section">
+                        <div class="day-header">
+                            <h3>🗓️ ${dayTitle} (${persianDate})</h3>
+                            <span class="${profitClass}">مجموع سود: ${profitSign}${dayProfit.toFixed(2)}%</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>ارز</th>
+                                    <th>جهت</th>
+                                    <th>ورود</th>
+                                    <th>حد سود</th>
+                                    <th>حد ضرر</th>
+                                    <th>وضعیت</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+
+            // فوتر
+            const lastTrade = trades.find(t => t.status !== "OPEN");
+            if (lastTrade) {
+                const lastPct = ((lastTrade.exitPrice - lastTrade.entry) / lastTrade.entry) * 100 * (lastTrade.side === "LONG" ? 1 : -1);
+                const statusText = lastPct >= 0 ? 'سود' : 'ضرر';
+                const colorClass = lastPct >= 0 ? 'profit' : 'loss';
+                document.getElementById('footer-status').innerHTML = `
+                    آخرین معامله بسته‌شده (${lastTrade.symbol}) با <span class="${colorClass}">${statusText} (${lastPct >= 0 ? '+' : ''}${lastPct.toFixed(2)}%)</span> بسته شد.
+                `;
+            }
+        }
+
+        // اجرای اولیه و تنظیم تایمر (هر ۱۰ ثانیه)
+        fetchData();
+        setInterval(fetchData, 10000);
+    </script>
+</body>
+</html>
