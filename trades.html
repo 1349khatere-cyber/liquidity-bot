@@ -15,9 +15,13 @@
             --border: #2a2e39;
             
             /* رنگ موتورها */
-            --eng1-bg: rgba(41, 98, 255, 0.1); /* آبی */
-            --eng2-bg: rgba(156, 39, 176, 0.1); /* بنفش */
-            --eng3-bg: rgba(255, 152, 0, 0.1);  /* نارنجی */
+            --eng1-color: #2962ff;
+            --eng2-color: #9c27b0;
+            --eng3-color: #ff9800;
+            
+            --eng1-bg: rgba(41, 98, 255, 0.1);
+            --eng2-bg: rgba(156, 39, 176, 0.1);
+            --eng3-bg: rgba(255, 152, 0, 0.1);
         }
 
         body {
@@ -32,11 +36,23 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .header h1 { font-size: 24px; color: #fff; }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        /* آمار کلی بالا */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
         .stat-card .title { font-size: 13px; color: var(--text-muted); margin-bottom: 5px; }
         .stat-card .value { font-size: 20px; font-weight: bold; }
         
+        /* آمار موتورها */
+        .engine-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
+        .engine-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; position: relative; overflow: hidden; }
+        .engine-card .eng-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+        .engine-card .eng-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: var(--text-muted); }
+        .engine-card .eng-row b { color: var(--text-main); font-size: 15px; }
+        
+        .card-e1 { border-top: 3px solid var(--eng1-color); }
+        .card-e2 { border-top: 3px solid var(--eng2-color); }
+        .card-e3 { border-top: 3px solid var(--eng3-color); }
+
         .day-section { margin-bottom: 30px; }
         .day-header { display: flex; justify-content: space-between; align-items: center; background-color: var(--card-bg); padding: 10px 15px; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; }
         .day-header h3 { font-size: 16px; color: #fff; }
@@ -46,15 +62,15 @@
         th { background-color: #2a2e39; color: var(--text-muted); font-weight: normal; }
         tr:last-child td { border-bottom: none; }
         
-        /* استایل موتورها */
+        /* استایل موتورها در جدول */
         .row-eng1 { background-color: var(--eng1-bg); }
         .row-eng2 { background-color: var(--eng2-bg); }
         .row-eng3 { background-color: var(--eng3-bg); }
         
         .eng-badge { font-size: 10px; padding: 2px 5px; border-radius: 3px; color: #fff; margin-right: 5px; }
-        .eng1-badge { background-color: #2962ff; }
-        .eng2-badge { background-color: #9c27b0; }
-        .eng3-badge { background-color: #ff9800; }
+        .eng1-badge { background-color: var(--eng1-color); }
+        .eng2-badge { background-color: var(--eng2-color); }
+        .eng3-badge { background-color: var(--eng3-color); }
 
         .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; }
         .badge-long { background-color: rgba(8, 153, 129, 0.2); color: var(--green); }
@@ -67,6 +83,10 @@
         
         .footer-status { text-align: center; margin-top: 20px; padding: 15px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
         .loading { text-align: center; font-size: 18px; color: var(--text-muted); margin-top: 50px; }
+
+        @media (max-width: 768px) {
+            .engine-stats-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -76,7 +96,11 @@
         <div id="last-update" style="color: var(--text-muted); font-size: 12px;">در حال بارگذاری...</div>
     </div>
 
+    <!-- آمار کلی -->
     <div class="stats-grid" id="stats-grid"></div>
+
+    <!-- ✅ آمار تفکیک شده موتورها -->
+    <div class="engine-stats-grid" id="engine-stats-grid"></div>
 
     <div id="tables-container">
         <div class="loading">⏳ در حال دریافت اطلاعات...</div>
@@ -111,6 +135,7 @@
         function renderDashboard(trades) {
             const container = document.getElementById('tables-container');
             const statsGrid = document.getElementById('stats-grid');
+            const engineStatsGrid = document.getElementById('engine-stats-grid');
             container.innerHTML = '';
 
             if (trades.length === 0) {
@@ -121,13 +146,16 @@
             const todayStr = new Date().toLocaleDateString('en-CA');
             const grouped = {};
             
-            let totalProfitPct3d = 0;
-            let wins3d = 0;
-            let validCount3d = 0;
-
-            let totalProfitPctToday = 0;
-            let winsToday = 0;
-            let validCountToday = 0;
+            // آمار کلی
+            let totalProfitPct3d = 0, wins3d = 0, validCount3d = 0;
+            let totalProfitPctToday = 0, winsToday = 0, validCountToday = 0;
+            
+            // آمار موتورها
+            let engines = {
+                "ENGINE_1_SMC": { n: 0, wins: 0, pct: 0, name: "🎯 موتور ۱ (SMC)" },
+                "ENGINE_2_MTF_V8": { n: 0, wins: 0, pct: 0, name: "⚙️ موتور ۲ (MTF)" },
+                "ENGINE_3_TRENDLINE": { n: 0, wins: 0, pct: 0, name: "📈 موتور ۳ (Trendline)" }
+            };
 
             trades.forEach(t => {
                 const dateObj = new Date(t.sentAt || t.closedAt || Date.now());
@@ -139,14 +167,23 @@
                 if (t.status !== "OPEN" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     
+                    // آمار ۳ روز
                     totalProfitPct3d += pct;
                     if (pct > 0) wins3d++;
                     validCount3d++;
 
+                    // آمار امروز
                     if (dateKey === todayStr) {
                         totalProfitPctToday += pct;
                         if (pct > 0) winsToday++;
                         validCountToday++;
+                    }
+
+                    // آمار موتورها
+                    if (engines[t.engine]) {
+                        engines[t.engine].n++;
+                        engines[t.engine].pct += pct;
+                        if (pct > 0) engines[t.engine].wins++;
                     }
                 }
             });
@@ -154,6 +191,7 @@
             const winRate3d = validCount3d > 0 ? (wins3d / validCount3d * 100).toFixed(1) : 0;
             const winRateToday = validCountToday > 0 ? (winsToday / validCountToday * 100).toFixed(1) : 0;
 
+            // رندر کارت‌های آمار کلی
             statsGrid.innerHTML = `
                 <div class="stat-card">
                     <div class="title">سود کل (۳ روز)</div>
@@ -181,6 +219,29 @@
                 </div>
             `;
 
+            // رندر کارت‌های آمار موتورها
+            let engHtml = '';
+            const engKeys = ["ENGINE_1_SMC", "ENGINE_2_MTF_V8", "ENGINE_3_TRENDLINE"];
+            
+            engKeys.forEach((key, idx) => {
+                const e = engines[key];
+                const wr = e.n > 0 ? ((e.wins / e.n) * 100).toFixed(1) : 0;
+                const pClass = e.pct >= 0 ? 'profit' : 'loss';
+                const pSign = e.pct >= 0 ? '+' : '';
+                const colorClass = idx === 0 ? 'eng1-color' : idx === 1 ? 'eng2-color' : 'eng3-color';
+                
+                engHtml += `
+                    <div class="engine-card card-e${idx+1}">
+                        <div class="eng-title ${colorClass}">${e.name}</div>
+                        <div class="eng-row"><span>تعداد معاملات:</span> <b>${e.n}</b></div>
+                        <div class="eng-row"><span>وین‌ریت:</span> <b>${wr}%</b></div>
+                        <div class="eng-row"><span>مجموع سود:</span> <b class="${pClass}">${pSign}${e.pct.toFixed(2)}%</b></div>
+                    </div>
+                `;
+            });
+            engineStatsGrid.innerHTML = engHtml;
+
+            // رندر جدول‌ها
             const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
 
             sortedDates.forEach((dateKey, index) => {
