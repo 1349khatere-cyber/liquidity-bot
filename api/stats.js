@@ -1,34 +1,48 @@
 // api/stats.js
-import { kvGet, computeStats, loadState } from '../lib/bot.js';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
 
 export default async function handler(req, res) {
-  // تنظیم هدرها برای اینکه Vercel اجازه دهد سایت شما (v0) به آن وصل شود
+  // تنظیم هدر CORS برای دسترسی از مرورگر
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
-    const trades = await kvGet("TRADES", { open: [], closed: [] });
-    const state = await loadState();
-    const stats = computeStats(trades.closed || []);
+    const rawData = await redis.get("TRADES");
+    let trades = { open: [], closed: [] };
+    
+    if (rawData) {
+      trades = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    }
 
-    // ارسال تمام داده‌ها به داشبورد
-    return res.status(200).json({
+    // ترکیب معاملات باز و بسته برای نمایش در داشبورد
+    const allTrades = [
+      ...(trades.open || []).map(t => ({ ...t, status: "OPEN" })),
+      ...(trades.closed || [])
+    ];
+
+    // مرتب‌سازی بر اساس زمان (جدیدترین‌ها اول)
+    allTrades.sort((a, b) => (b.sentAt || b.closedAt || 0) - (a.sentAt || a.closedAt || 0));
+
+    // فیلتر کردن معاملات ۳ روز اخیر (برای اینکه دیتا سبک باشد)
+    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+    const filteredTrades = allTrades.filter(t => (t.sentAt || t.closedAt || 0) > threeDaysAgo);
+
+    res.status(200).json({
       ok: true,
-      stats: stats,
-      openTrades: trades.open || [],
-      closedTrades: (trades.closed || []).slice(-50).reverse(), // 50 معامله آخر
-      botStatus: {
-        paused: state.paused,
-        dailyR: state.dailyR,
-        dailySignals: state.dailySignalsCount || 0,
-        lastRun: state.lastRun
-      }
+      trades: filteredTrades
     });
   } catch (error) {
-    return res.status(500).json({ ok: false, error: error.message });
+    console.error("Stats API Error:", error);
+    res.status(500).json({ ok: false, error: error.message });
   }
 }
