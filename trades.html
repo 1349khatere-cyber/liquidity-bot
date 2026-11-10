@@ -13,6 +13,11 @@
             --green: #089981;
             --red: #f23645;
             --border: #2a2e39;
+            
+            /* رنگ موتورها */
+            --eng1-bg: rgba(41, 98, 255, 0.1); /* آبی */
+            --eng2-bg: rgba(156, 39, 176, 0.1); /* بنفش */
+            --eng3-bg: rgba(255, 152, 0, 0.1);  /* نارنجی */
         }
 
         body {
@@ -26,9 +31,11 @@
         h1, h2, h3 { margin: 0; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .header h1 { font-size: 24px; color: #fff; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .stat-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
-        .stat-card .value { font-size: 22px; font-weight: bold; margin-top: 5px; }
+        .stat-card .title { font-size: 13px; color: var(--text-muted); margin-bottom: 5px; }
+        .stat-card .value { font-size: 20px; font-weight: bold; }
         
         .day-section { margin-bottom: 30px; }
         .day-header { display: flex; justify-content: space-between; align-items: center; background-color: var(--card-bg); padding: 10px 15px; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; }
@@ -39,6 +46,16 @@
         th { background-color: #2a2e39; color: var(--text-muted); font-weight: normal; }
         tr:last-child td { border-bottom: none; }
         
+        /* استایل موتورها */
+        .row-eng1 { background-color: var(--eng1-bg); }
+        .row-eng2 { background-color: var(--eng2-bg); }
+        .row-eng3 { background-color: var(--eng3-bg); }
+        
+        .eng-badge { font-size: 10px; padding: 2px 5px; border-radius: 3px; color: #fff; margin-right: 5px; }
+        .eng1-badge { background-color: #2962ff; }
+        .eng2-badge { background-color: #9c27b0; }
+        .eng3-badge { background-color: #ff9800; }
+
         .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; }
         .badge-long { background-color: rgba(8, 153, 129, 0.2); color: var(--green); }
         .badge-short { background-color: rgba(242, 54, 69, 0.2); color: var(--red); }
@@ -101,10 +118,16 @@
                 return;
             }
 
+            const todayStr = new Date().toLocaleDateString('en-CA');
             const grouped = {};
-            let totalProfitPct = 0;
-            let wins = 0;
-            let validTradesCount = 0;
+            
+            let totalProfitPct3d = 0;
+            let wins3d = 0;
+            let validCount3d = 0;
+
+            let totalProfitPctToday = 0;
+            let winsToday = 0;
+            let validCountToday = 0;
 
             trades.forEach(t => {
                 const dateObj = new Date(t.sentAt || t.closedAt || Date.now());
@@ -115,25 +138,46 @@
 
                 if (t.status !== "OPEN" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
-                    totalProfitPct += pct;
-                    if (pct > 0) wins++;
-                    validTradesCount++;
+                    
+                    totalProfitPct3d += pct;
+                    if (pct > 0) wins3d++;
+                    validCount3d++;
+
+                    if (dateKey === todayStr) {
+                        totalProfitPctToday += pct;
+                        if (pct > 0) winsToday++;
+                        validCountToday++;
+                    }
                 }
             });
 
-            const winRate = validTradesCount > 0 ? (wins / validTradesCount * 100).toFixed(1) : 0;
+            const winRate3d = validCount3d > 0 ? (wins3d / validCount3d * 100).toFixed(1) : 0;
+            const winRateToday = validCountToday > 0 ? (winsToday / validCountToday * 100).toFixed(1) : 0;
+
             statsGrid.innerHTML = `
                 <div class="stat-card">
-                    <div>سود کل (۳ روز)</div>
-                    <div class="value ${totalProfitPct >= 0 ? 'profit' : 'loss'}">${totalProfitPct >= 0 ? '+' : ''}${totalProfitPct.toFixed(2)}%</div>
+                    <div class="title">سود کل (۳ روز)</div>
+                    <div class="value ${totalProfitPct3d >= 0 ? 'profit' : 'loss'}">${totalProfitPct3d >= 0 ? '+' : ''}${totalProfitPct3d.toFixed(2)}%</div>
                 </div>
                 <div class="stat-card">
-                    <div>وین‌ریت (Win Rate)</div>
-                    <div class="value">${winRate}%</div>
+                    <div class="title">وین‌ریت (۳ روز)</div>
+                    <div class="value">${winRate3d}%</div>
                 </div>
                 <div class="stat-card">
-                    <div>کل معاملات</div>
-                    <div class="value">${validTradesCount}</div>
+                    <div class="title">کل معاملات (۳ روز)</div>
+                    <div class="value">${validCount3d}</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--green);">
+                    <div class="title" style="color: var(--green);">سود امروز</div>
+                    <div class="value ${totalProfitPctToday >= 0 ? 'profit' : 'loss'}">${totalProfitPctToday >= 0 ? '+' : ''}${totalProfitPctToday.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--green);">
+                    <div class="title" style="color: var(--green);">وین‌ریت امروز</div>
+                    <div class="value">${winRateToday}%</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--green);">
+                    <div class="title" style="color: var(--green);">معاملات امروز</div>
+                    <div class="value">${validCountToday}</div>
                 </div>
             `;
 
@@ -157,6 +201,19 @@
                     const sideClass = t.side === "LONG" ? "badge-long" : "badge-short";
                     const sideText = t.side === "LONG" ? "🟢 خرید" : "🔴 فروش";
                     
+                    let rowClass = '';
+                    let engBadge = '';
+                    if (t.engine === "ENGINE_1_SMC") {
+                        rowClass = 'row-eng1';
+                        engBadge = '<span class="eng-badge eng1-badge">E1</span>';
+                    } else if (t.engine === "ENGINE_2_MTF_V8") {
+                        rowClass = 'row-eng2';
+                        engBadge = '<span class="eng-badge eng2-badge">E2</span>';
+                    } else if (t.engine === "ENGINE_3_TRENDLINE") {
+                        rowClass = 'row-eng3';
+                        engBadge = '<span class="eng-badge eng3-badge">E3</span>';
+                    }
+
                     let statusHtml = '';
                     let closeTimeText = '—';
 
@@ -174,8 +231,8 @@
                     }
 
                     rowsHtml += `
-                        <tr>
-                            <td>#${t.signalId || '—'}</td>
+                        <tr class="${rowClass}">
+                            <td>#${t.signalId || '—'} ${engBadge}</td>
                             <td>${t.symbol}</td>
                             <td><span class="badge ${sideClass}">${sideText}</span></td>
                             <td class="time-cell">${formatTime(t.sentAt)}</td>
@@ -200,7 +257,7 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>#</th>
+                                    <th># / موتور</th>
                                     <th>ارز</th>
                                     <th>جهت</th>
                                     <th>ساعت ورود</th>
