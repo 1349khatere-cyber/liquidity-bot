@@ -35,7 +35,7 @@
         .day-header h3 { font-size: 16px; color: #fff; }
         
         table { width: 100%; border-collapse: collapse; background-color: var(--card-bg); border-radius: 0 0 8px 8px; overflow: hidden; border: 1px solid var(--border); }
-        th, td { padding: 12px 15px; text-align: center; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th, td { padding: 12px 10px; text-align: center; border-bottom: 1px solid var(--border); font-size: 13px; }
         th { background-color: #2a2e39; color: var(--text-muted); font-weight: normal; }
         tr:last-child td { border-bottom: none; }
         
@@ -46,6 +46,7 @@
         .profit { color: var(--green); font-weight: bold; }
         .loss { color: var(--red); font-weight: bold; }
         .neutral { color: var(--text-muted); }
+        .time-cell { color: var(--text-muted); font-size: 12px; direction: ltr; }
         
         .footer-status { text-align: center; margin-top: 20px; padding: 15px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
         .loading { text-align: center; font-size: 18px; color: var(--text-muted); margin-top: 50px; }
@@ -58,9 +59,7 @@
         <div id="last-update" style="color: var(--text-muted); font-size: 12px;">در حال بارگذاری...</div>
     </div>
 
-    <div class="stats-grid" id="stats-grid">
-        <!-- کارت‌های آماری با جاوااسکریپت پر می‌شوند -->
-    </div>
+    <div class="stats-grid" id="stats-grid"></div>
 
     <div id="tables-container">
         <div class="loading">⏳ در حال دریافت اطلاعات...</div>
@@ -73,7 +72,6 @@
     <script>
         async function fetchData() {
             try {
-                // آدرس API خودتان را اینجا وارد کنید (اگر دامنه دیگری است)
                 const response = await fetch('/api/stats');
                 const data = await response.json();
 
@@ -87,17 +85,22 @@
             }
         }
 
+        function formatTime(ts) {
+            if (!ts) return "—";
+            const date = new Date(ts);
+            return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+        }
+
         function renderDashboard(trades) {
             const container = document.getElementById('tables-container');
             const statsGrid = document.getElementById('stats-grid');
-            container.innerHTML = ''; // پاک کردن حالت لودینگ
+            container.innerHTML = '';
 
             if (trades.length === 0) {
                 container.innerHTML = '<div class="loading">هیچ معامله‌ای در ۳ روز اخیر ثبت نشده است.</div>';
                 return;
             }
 
-            // گروه‌بندی بر اساس روز
             const grouped = {};
             let totalProfitPct = 0;
             let wins = 0;
@@ -105,13 +108,11 @@
 
             trades.forEach(t => {
                 const dateObj = new Date(t.sentAt || t.closedAt || Date.now());
-                // تبدیل تاریخ به فرمت YYYY-MM-DD برای گروه‌بندی
-                const dateKey = dateObj.toLocaleDateString('en-CA'); // مثلا 2026-11-10
+                const dateKey = dateObj.toLocaleDateString('en-CA'); 
                 
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(t);
 
-                // محاسبه آمار کلی (فقط برای معاملات بسته شده)
                 if (t.status !== "OPEN" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     totalProfitPct += pct;
@@ -120,7 +121,6 @@
                 }
             });
 
-            // رندر کارت‌های آماری
             const winRate = validTradesCount > 0 ? (wins / validTradesCount * 100).toFixed(1) : 0;
             statsGrid.innerHTML = `
                 <div class="stat-card">
@@ -137,13 +137,11 @@
                 </div>
             `;
 
-            // رندر جدول‌ها برای هر روز
-            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)); // جدیدترین روز اول
+            const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
 
             sortedDates.forEach((dateKey, index) => {
                 const dayTrades = grouped[dateKey];
                 
-                // محاسبه سود روز
                 let dayProfit = 0;
                 dayTrades.forEach(t => {
                     if (t.status !== "OPEN" && t.entry && t.exitPrice) {
@@ -160,13 +158,19 @@
                     const sideText = t.side === "LONG" ? "🟢 خرید" : "🔴 فروش";
                     
                     let statusHtml = '';
-                    
+                    let closeTimeText = '—';
+
                     if (t.status === "OPEN") {
-                        statusHtml = `<span class="neutral">⏳ در جریان</span>`;
+                        const pnl = t.livePnlPct !== undefined ? t.livePnlPct : 0;
+                        const pClass = pnl >= 0 ? 'profit' : 'loss';
+                        const pSign = pnl >= 0 ? '+' : '';
+                        statusHtml = `<span class="${pClass}">⏳ در جریان (${pSign}${pnl.toFixed(2)}%)</span>`;
+                        closeTimeText = `معامله باز`;
                     } else {
                         let pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                         const pClass = pct >= 0 ? 'profit' : 'loss';
                         statusHtml = `<span class="${pClass}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% (بسته شد)</span>`;
+                        closeTimeText = formatTime(t.closedAt);
                     }
 
                     rowsHtml += `
@@ -174,6 +178,8 @@
                             <td>#${t.signalId || '—'}</td>
                             <td>${t.symbol}</td>
                             <td><span class="badge ${sideClass}">${sideText}</span></td>
+                            <td class="time-cell">${formatTime(t.sentAt)}</td>
+                            <td class="time-cell">${closeTimeText}</td>
                             <td>${t.entry ? t.entry.toFixed(6) : '—'}</td>
                             <td>${t.tp ? t.tp.toFixed(6) : '—'}</td>
                             <td>${t.sl ? t.sl.toFixed(6) : '—'}</td>
@@ -197,10 +203,12 @@
                                     <th>#</th>
                                     <th>ارز</th>
                                     <th>جهت</th>
+                                    <th>ساعت ورود</th>
+                                    <th>ساعت خروج</th>
                                     <th>ورود</th>
                                     <th>حد سود</th>
                                     <th>حد ضرر</th>
-                                    <th>وضعیت</th>
+                                    <th>وضعیت (درصد)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -211,7 +219,6 @@
                 `;
             });
 
-            // فوتر
             const lastTrade = trades.find(t => t.status !== "OPEN");
             if (lastTrade) {
                 const lastPct = ((lastTrade.exitPrice - lastTrade.entry) / lastTrade.entry) * 100 * (lastTrade.side === "LONG" ? 1 : -1);
@@ -223,7 +230,6 @@
             }
         }
 
-        // اجرای اولیه و تنظیم تایمر (هر ۱۰ ثانیه)
         fetchData();
         setInterval(fetchData, 10000);
     </script>
