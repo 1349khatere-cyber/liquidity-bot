@@ -132,14 +132,14 @@
             container.innerHTML = '';
 
             if (trades.length === 0) {
-                container.innerHTML = '<div class="loading">هیچ معامله‌ای در ۳ روز اخیر ثبت نشده است.</div>';
+                container.innerHTML = '<div class="loading">هیچ معامله‌ای در ۱۰ روز اخیر ثبت نشده است.</div>';
                 return;
             }
 
             const todayStr = new Date().toLocaleDateString('en-CA');
             const grouped = {};
             
-            let totalProfitPct3d = 0, wins3d = 0, validCount3d = 0;
+            let totalProfitPct10d = 0, wins10d = 0, validCount10d = 0;
             let totalProfitPctToday = 0, winsToday = 0, validCountToday = 0;
             
             let engines = {
@@ -158,9 +158,9 @@
                 if (t.status !== "OPEN" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     
-                    totalProfitPct3d += pct;
-                    if (pct > 0) wins3d++;
-                    validCount3d++;
+                    totalProfitPct10d += pct;
+                    if (pct > 0) wins10d++;
+                    validCount10d++;
 
                     if (dateKey === todayStr) {
                         totalProfitPctToday += pct;
@@ -176,21 +176,21 @@
                 }
             });
 
-            const winRate3d = validCount3d > 0 ? (wins3d / validCount3d * 100).toFixed(1) : 0;
+            const winRate10d = validCount10d > 0 ? (wins10d / validCount10d * 100).toFixed(1) : 0;
             const winRateToday = validCountToday > 0 ? (winsToday / validCountToday * 100).toFixed(1) : 0;
 
             statsGrid.innerHTML = `
                 <div class="stat-card">
-                    <div class="title">سود کل (۳ روز)</div>
-                    <div class="value ${totalProfitPct3d >= 0 ? 'profit' : 'loss'}">${totalProfitPct3d >= 0 ? '+' : ''}${totalProfitPct3d.toFixed(2)}%</div>
+                    <div class="title">سود کل (۱۰ روز)</div>
+                    <div class="value ${totalProfitPct10d >= 0 ? 'profit' : 'loss'}">${totalProfitPct10d >= 0 ? '+' : ''}${totalProfitPct10d.toFixed(2)}%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="title">وین‌ریت (۳ روز)</div>
-                    <div class="value">${winRate3d}%</div>
+                    <div class="title">وین‌ریت (۱۰ روز)</div>
+                    <div class="value">${winRate10d}%</div>
                 </div>
                 <div class="stat-card">
-                    <div class="title">کل معاملات (۳ روز)</div>
-                    <div class="value">${validCount3d}</div>
+                    <div class="title">کل معاملات (۱۰ روز)</div>
+                    <div class="value">${validCount10d}</div>
                 </div>
                 <div class="stat-card" style="border-color: var(--green);">
                     <div class="title" style="color: var(--green);">سود امروز</div>
@@ -239,7 +239,18 @@
                     }
                 });
 
-                let dayTitle = index === 0 ? "امروز" : index === 1 ? "دیروز" : "دو روز پیش";
+                // اصلاح عنوان روزها به صورت داینامیک تا ۱۰ روز
+                let dayTitle = "";
+                if (index === 0) {
+                    dayTitle = "امروز";
+                } else if (index === 1) {
+                    dayTitle = "دیروز";
+                } else {
+                    const persianNumbers = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+                    const numStr = String(index).replace(/\d/g, d => persianNumbers[d]);
+                    dayTitle = `${numStr} روز پیش`;
+                }
+
                 const persianDate = new Date(dateKey).toLocaleDateString('fa-IR');
 
                 let rowsHtml = '';
