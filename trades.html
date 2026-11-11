@@ -111,11 +111,13 @@
 
                 if (!data.ok) throw new Error("API Error");
 
-                // ✅ ترکیب معاملات باز و بسته شده
                 const allTrades = [
                     ...(data.openTrades || []),
                     ...(data.closedTrades || [])
                 ];
+                
+                // ✅ اصلاح ترتیب سیگنال‌ها (از بزرگ به کوچک)
+                allTrades.sort((a, b) => (b.signalId || 0) - (a.signalId || 0));
                 
                 renderDashboard(allTrades);
                 document.getElementById('last-update').innerText = "آخرین بروزرسانی: " + new Date().toLocaleTimeString('fa-IR');
@@ -161,7 +163,6 @@
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(t);
 
-                // ✅ شرط بررسی VOID و نبودن exitPrice
                 if (t.status !== "OPEN" && t.status !== "VOID" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     
@@ -287,7 +288,6 @@
                         statusHtml = `<span class="${pClass}">⏳ در جریان (${pSign}${pnl.toFixed(2)}%)</span>`;
                         closeTimeText = `معامله باز`;
                     } else if (t.status === "VOID" || !t.exitPrice) {
-                        // ✅ اگر معامله باطل شد یا قیمت خروجی نداشت
                         statusHtml = `<span class="neutral">⚪ باطل شد</span>`;
                         closeTimeText = `—`;
                     } else {
@@ -343,7 +343,7 @@
                 `;
             });
 
-            const lastTrade = trades.find(t => t.status !== "OPEN" && t.status !== "VOID");
+            const lastTrade = trades.find(t => t.status !== "OPEN" && t.status !== "VOID" && t.exitPrice);
             if (lastTrade) {
                 const lastPct = ((lastTrade.exitPrice - lastTrade.entry) / lastTrade.entry) * 100 * (lastTrade.side === "LONG" ? 1 : -1);
                 const statusText = lastPct >= 0 ? 'سود' : 'ضرر';
