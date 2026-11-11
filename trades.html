@@ -111,7 +111,7 @@
 
                 if (!data.ok) throw new Error("API Error");
 
-                // ✅ اصلاح باگ: ترکیب معاملات باز و بسته شده
+                // ✅ ترکیب معاملات باز و بسته شده
                 const allTrades = [
                     ...(data.openTrades || []),
                     ...(data.closedTrades || [])
@@ -161,6 +161,7 @@
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(t);
 
+                // ✅ شرط بررسی VOID و نبودن exitPrice
                 if (t.status !== "OPEN" && t.status !== "VOID" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     
@@ -285,8 +286,8 @@
                         const pSign = pnl >= 0 ? '+' : '';
                         statusHtml = `<span class="${pClass}">⏳ در جریان (${pSign}${pnl.toFixed(2)}%)</span>`;
                         closeTimeText = `معامله باز`;
-                    } else if (t.status === "VOID") {
-                        // ✅ اصلاح باگ NaN: اگر معامله باطل شد، درصد نشان نده
+                    } else if (t.status === "VOID" || !t.exitPrice) {
+                        // ✅ اگر معامله باطل شد یا قیمت خروجی نداشت
                         statusHtml = `<span class="neutral">⚪ باطل شد</span>`;
                         closeTimeText = `—`;
                     } else {
