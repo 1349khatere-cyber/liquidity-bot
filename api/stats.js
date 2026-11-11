@@ -2,7 +2,6 @@
 import { kvGet, computeStats, loadState } from '../lib/bot.js';
 
 export default async function handler(req, res) {
-  // تنظیم هدرها برای اینکه Vercel اجازه دهد سایت شما (v0) به آن وصل شود
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   
@@ -15,12 +14,11 @@ export default async function handler(req, res) {
     const state = await loadState();
     const stats = computeStats(trades.closed || []);
 
-    // ارسال تمام داده‌ها به داشبورد (افزایش سقف از ۵۰ به ۵۰۰ معامله برای پوشش ۱۰ روز)
     return res.status(200).json({
       ok: true,
       stats: stats,
       openTrades: trades.open || [],
-      closedTrades: (trades.closed || []).slice(-500).reverse(),
+      closedTrades: (trades.closed || []).slice(-500).reverse(), // ✅ 500 معامله آخر
       botStatus: {
         paused: state.paused,
         dailyR: state.dailyR,
