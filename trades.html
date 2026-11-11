@@ -111,7 +111,13 @@
 
                 if (!data.ok) throw new Error("API Error");
 
-                renderDashboard(data.trades);
+                // ✅ اصلاح باگ: ترکیب معاملات باز و بسته شده
+                const allTrades = [
+                    ...(data.openTrades || []),
+                    ...(data.closedTrades || [])
+                ];
+                
+                renderDashboard(allTrades);
                 document.getElementById('last-update').innerText = "آخرین بروزرسانی: " + new Date().toLocaleTimeString('fa-IR');
             } catch (error) {
                 console.error("Fetch error:", error);
