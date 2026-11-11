@@ -161,7 +161,7 @@
                 if (!grouped[dateKey]) grouped[dateKey] = [];
                 grouped[dateKey].push(t);
 
-                if (t.status !== "OPEN" && t.entry && t.exitPrice) {
+                if (t.status !== "OPEN" && t.status !== "VOID" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     
                     totalProfitPct10d += pct;
@@ -240,12 +240,11 @@
                 
                 let dayProfit = 0;
                 dayTrades.forEach(t => {
-                    if (t.status !== "OPEN" && t.entry && t.exitPrice) {
+                    if (t.status !== "OPEN" && t.status !== "VOID" && t.entry && t.exitPrice) {
                         dayProfit += ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     }
                 });
 
-                // اصلاح عنوان روزها به صورت داینامیک تا ۱۰ روز
                 let dayTitle = "";
                 if (index === 0) {
                     dayTitle = "امروز";
@@ -286,6 +285,10 @@
                         const pSign = pnl >= 0 ? '+' : '';
                         statusHtml = `<span class="${pClass}">⏳ در جریان (${pSign}${pnl.toFixed(2)}%)</span>`;
                         closeTimeText = `معامله باز`;
+                    } else if (t.status === "VOID") {
+                        // ✅ اصلاح باگ NaN: اگر معامله باطل شد، درصد نشان نده
+                        statusHtml = `<span class="neutral">⚪ باطل شد</span>`;
+                        closeTimeText = `—`;
                     } else {
                         let pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                         const pClass = pct >= 0 ? 'profit' : 'loss';
@@ -339,7 +342,7 @@
                 `;
             });
 
-            const lastTrade = trades.find(t => t.status !== "OPEN");
+            const lastTrade = trades.find(t => t.status !== "OPEN" && t.status !== "VOID");
             if (lastTrade) {
                 const lastPct = ((lastTrade.exitPrice - lastTrade.entry) / lastTrade.entry) * 100 * (lastTrade.side === "LONG" ? 1 : -1);
                 const statusText = lastPct >= 0 ? 'سود' : 'ضرر';
