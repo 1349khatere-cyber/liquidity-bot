@@ -18,7 +18,7 @@ export default async function handler(req, res) {
       ok: true,
       stats: stats,
       openTrades: trades.open || [],
-      closedTrades: (trades.closed || []).slice(-500).reverse(), // ✅ 500 معامله آخر
+      closedTrades: (trades.closed || []).slice(-500).reverse(),
       botStatus: {
         paused: state.paused,
         dailyR: state.dailyR,
