@@ -14,7 +14,6 @@
             --red: #f23645;
             --border: #2a2e39;
             
-            /* رنگ موتورها */
             --eng1-color: #2962ff;
             --eng2-color: #9c27b0;
             --eng3-color: #ff9800;
@@ -36,13 +35,11 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .header h1 { font-size: 24px; color: #fff; }
         
-        /* آمار کلی بالا */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
         .stat-card .title { font-size: 13px; color: var(--text-muted); margin-bottom: 5px; }
         .stat-card .value { font-size: 20px; font-weight: bold; }
         
-        /* آمار موتورها */
         .engine-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
         .engine-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; position: relative; overflow: hidden; }
         .engine-card .eng-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
@@ -62,7 +59,6 @@
         th { background-color: #2a2e39; color: var(--text-muted); font-weight: normal; }
         tr:last-child td { border-bottom: none; }
         
-        /* استایل موتورها در جدول */
         .row-eng1 { background-color: var(--eng1-bg); }
         .row-eng2 { background-color: var(--eng2-bg); }
         .row-eng3 { background-color: var(--eng3-bg); }
@@ -96,10 +92,7 @@
         <div id="last-update" style="color: var(--text-muted); font-size: 12px;">در حال بارگذاری...</div>
     </div>
 
-    <!-- آمار کلی -->
     <div class="stats-grid" id="stats-grid"></div>
-
-    <!-- ✅ آمار تفکیک شده موتورها -->
     <div class="engine-stats-grid" id="engine-stats-grid"></div>
 
     <div id="tables-container">
@@ -146,11 +139,9 @@
             const todayStr = new Date().toLocaleDateString('en-CA');
             const grouped = {};
             
-            // آمار کلی
             let totalProfitPct3d = 0, wins3d = 0, validCount3d = 0;
             let totalProfitPctToday = 0, winsToday = 0, validCountToday = 0;
             
-            // آمار موتورها
             let engines = {
                 "ENGINE_1_SMC": { n: 0, wins: 0, pct: 0, name: "🎯 موتور ۱ (SMC)" },
                 "ENGINE_2_MTF_V8": { n: 0, wins: 0, pct: 0, name: "⚙️ موتور ۲ (MTF)" },
@@ -167,19 +158,16 @@
                 if (t.status !== "OPEN" && t.entry && t.exitPrice) {
                     const pct = ((t.exitPrice - t.entry) / t.entry) * 100 * (t.side === "LONG" ? 1 : -1);
                     
-                    // آمار ۳ روز
                     totalProfitPct3d += pct;
                     if (pct > 0) wins3d++;
                     validCount3d++;
 
-                    // آمار امروز
                     if (dateKey === todayStr) {
                         totalProfitPctToday += pct;
                         if (pct > 0) winsToday++;
                         validCountToday++;
                     }
 
-                    // آمار موتورها
                     if (engines[t.engine]) {
                         engines[t.engine].n++;
                         engines[t.engine].pct += pct;
@@ -191,7 +179,6 @@
             const winRate3d = validCount3d > 0 ? (wins3d / validCount3d * 100).toFixed(1) : 0;
             const winRateToday = validCountToday > 0 ? (winsToday / validCountToday * 100).toFixed(1) : 0;
 
-            // رندر کارت‌های آمار کلی
             statsGrid.innerHTML = `
                 <div class="stat-card">
                     <div class="title">سود کل (۳ روز)</div>
@@ -219,7 +206,6 @@
                 </div>
             `;
 
-            // رندر کارت‌های آمار موتورها
             let engHtml = '';
             const engKeys = ["ENGINE_1_SMC", "ENGINE_2_MTF_V8", "ENGINE_3_TRENDLINE"];
             
@@ -241,7 +227,6 @@
             });
             engineStatsGrid.innerHTML = engHtml;
 
-            // رندر جدول‌ها
             const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
 
             sortedDates.forEach((dateKey, index) => {
