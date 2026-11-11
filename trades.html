@@ -35,19 +35,18 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .header h1 { font-size: 24px; color: #fff; }
         
-        .section-title { font-size: 18px; color: #fff; margin: 30px 0 15px 0; border-right: 4px solid var(--eng1-color); padding-right: 10px; }
-        .section-title.today { border-right-color: var(--green); }
-
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        .stat-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
-        .stat-card .title { font-size: 13px; color: var(--text-muted); margin-bottom: 5px; }
-        .stat-card .value { font-size: 20px; font-weight: bold; }
+        /* تنظیم گرید برای ۶ کارت در یک ردیف */
+        .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-card { background-color: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+        .stat-card .title { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+        .stat-card .value { font-size: 18px; font-weight: bold; }
         
-        .engine-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-        .engine-card { background-color: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; position: relative; overflow: hidden; }
-        .engine-card .eng-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
-        .engine-card .eng-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: var(--text-muted); }
-        .engine-card .eng-row b { color: var(--text-main); font-size: 15px; }
+        /* تنظیم گرید برای ۶ کارت موتور در یک ردیف */
+        .engine-stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 25px; }
+        .engine-card { background-color: var(--card-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border); text-align: center; position: relative; overflow: hidden; }
+        .engine-card .eng-title { font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+        .engine-card .eng-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; color: var(--text-muted); }
+        .engine-card .eng-row b { color: var(--text-main); font-size: 13px; }
         
         .card-e1 { border-top: 3px solid var(--eng1-color); }
         .card-e2 { border-top: 3px solid var(--eng2-color); }
@@ -83,8 +82,15 @@
         .footer-status { text-align: center; margin-top: 20px; padding: 15px; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
         .loading { text-align: center; font-size: 18px; color: var(--text-muted); margin-top: 50px; }
 
+        /* ریسپانسیو برای موبایل */
+        @media (max-width: 1200px) {
+            .stats-grid, .engine-stats-grid { grid-template-columns: repeat(3, 1fr); }
+        }
         @media (max-width: 768px) {
-            .engine-stats-grid { grid-template-columns: 1fr; }
+            .stats-grid, .engine-stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 480px) {
+            .stats-grid, .engine-stats-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -95,22 +101,13 @@
         <div id="last-update" style="color: var(--text-muted); font-size: 12px;">در حال بارگذاری...</div>
     </div>
 
-    <!-- بخش ۱۰ روز اخیر -->
-    <div class="section-title">📊 آمار کل ۱۰ روز اخیر</div>
-    <div class="stats-grid" id="stats-grid-10d"></div>
-    <div class="engine-stats-grid" id="engine-stats-grid-10d"></div>
-
-    <br><br>
-
-    <!-- بخش امروز -->
-    <div class="section-title today">📅 آمار امروز</div>
-    <div class="stats-grid" id="stats-grid-today"></div>
-    <div class="engine-stats-grid" id="engine-stats-grid-today"></div>
-
-    <br><br>
+    <!-- کارت‌های خلاصه (۶ کارت در یک ردیف) -->
+    <div class="stats-grid" id="stats-grid"></div>
+    
+    <!-- کارت‌های موتورها (۶ کارت در یک ردیف) -->
+    <div class="engine-stats-grid" id="engine-stats-grid"></div>
 
     <!-- جدول معاملات -->
-    <div class="section-title">📋 لیست معاملات</div>
     <div id="tables-container">
         <div class="loading">⏳ در حال دریافت اطلاعات...</div>
     </div>
@@ -151,12 +148,8 @@
 
         function renderDashboard(trades) {
             const container = document.getElementById('tables-container');
-            
-            const statsGrid10d = document.getElementById('stats-grid-10d');
-            const engineStatsGrid10d = document.getElementById('engine-stats-grid-10d');
-            const statsGridToday = document.getElementById('stats-grid-today');
-            const engineStatsGridToday = document.getElementById('engine-stats-grid-today');
-            
+            const statsGrid = document.getElementById('stats-grid');
+            const engineStatsGrid = document.getElementById('engine-stats-grid');
             container.innerHTML = '';
 
             if (trades.length === 0) {
@@ -170,17 +163,17 @@
             // آمار ۱۰ روزه
             let totalProfit10d = 0, wins10d = 0, validCount10d = 0;
             let engines10d = {
-                "ENGINE_1_SMC": { n: 0, wins: 0, pct: 0, name: "🎯 موتور ۱ (SMC)" },
-                "ENGINE_2_MTF_V8": { n: 0, wins: 0, pct: 0, name: "⚙️ موتور ۲ (MTF)" },
-                "ENGINE_3_TRENDLINE": { n: 0, wins: 0, pct: 0, name: "📈 موتور ۳ (Trendline)" }
+                "ENGINE_1_SMC": { n: 0, wins: 0, pct: 0, name: "موتور ۱ (SMC)" },
+                "ENGINE_2_MTF_V8": { n: 0, wins: 0, pct: 0, name: "موتور ۲ (MTF)" },
+                "ENGINE_3_TRENDLINE": { n: 0, wins: 0, pct: 0, name: "موتور ۳ (Trendline)" }
             };
 
             // آمار امروز
             let totalProfitToday = 0, winsToday = 0, validCountToday = 0;
             let enginesToday = {
-                "ENGINE_1_SMC": { n: 0, wins: 0, pct: 0, name: "🎯 موتور ۱ (SMC)" },
-                "ENGINE_2_MTF_V8": { n: 0, wins: 0, pct: 0, name: "⚙️ موتور ۲ (MTF)" },
-                "ENGINE_3_TRENDLINE": { n: 0, wins: 0, pct: 0, name: "📈 موتور ۳ (Trendline)" }
+                "ENGINE_1_SMC": { n: 0, wins: 0, pct: 0, name: "موتور ۱ (SMC)" },
+                "ENGINE_2_MTF_V8": { n: 0, wins: 0, pct: 0, name: "موتور ۲ (MTF)" },
+                "ENGINE_3_TRENDLINE": { n: 0, wins: 0, pct: 0, name: "موتور ۳ (Trendline)" }
             };
 
             trades.forEach(t => {
@@ -219,58 +212,64 @@
                 }
             });
 
-            // تابع کمکی برای ساخت کارت‌های موتور
-            const buildEngineCards = (engines) => {
-                let html = '';
-                const engKeys = ["ENGINE_1_SMC", "ENGINE_2_MTF_V8", "ENGINE_3_TRENDLINE"];
-                engKeys.forEach((key, idx) => {
-                    const e = engines[key];
-                    const wr = e.n > 0 ? ((e.wins / e.n) * 100).toFixed(1) : 0;
-                    const pClass = e.pct >= 0 ? 'profit' : 'loss';
-                    const pSign = e.pct >= 0 ? '+' : '';
-                    const colorClass = idx === 0 ? 'eng1-color' : idx === 1 ? 'eng2-color' : 'eng3-color';
-                    
-                    html += `
-                        <div class="engine-card card-e${idx+1}">
-                            <div class="eng-title ${colorClass}">${e.name}</div>
-                            <div class="eng-row"><span>تعداد معاملات:</span> <b>${e.n}</b></div>
-                            <div class="eng-row"><span>وین‌ریت:</span> <b>${wr}%</b></div>
-                            <div class="eng-row"><span>مجموع سود:</span> <b class="${pClass}">${pSign}${e.pct.toFixed(2)}%</b></div>
-                        </div>
-                    `;
-                });
-                return html;
-            };
+            const winRate10d = validCount10d > 0 ? (wins10d / validCount10d * 100).toFixed(1) : 0;
+            const winRateToday = validCountToday > 0 ? (winsToday / validCountToday * 100).toFixed(1) : 0;
 
-            // تابع کمکی برای ساخت کارت‌های کلی
-            const buildTotalCards = (profit, winRate, count, isToday = false) => {
-                const borderStyle = isToday ? 'border-color: var(--green);' : '';
-                const titleColor = isToday ? 'color: var(--green);' : '';
+            // رندر ۶ کارت خلاصه (سمت راست ۱۰ روز، سمت چپ امروز)
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="title">سود کل (۱۰ روز)</div>
+                    <div class="value ${totalProfit10d >= 0 ? 'profit' : 'loss'}">${totalProfit10d >= 0 ? '+' : ''}${totalProfit10d.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="title">وین‌ریت (۱۰ روز)</div>
+                    <div class="value">${winRate10d}%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="title">کل معاملات (۱۰ روز)</div>
+                    <div class="value">${validCount10d}</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--green);">
+                    <div class="title" style="color: var(--green);">سود امروز</div>
+                    <div class="value ${totalProfitToday >= 0 ? 'profit' : 'loss'}">${totalProfitToday >= 0 ? '+' : ''}${totalProfitToday.toFixed(2)}%</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--green);">
+                    <div class="title" style="color: var(--green);">وین‌ریت امروز</div>
+                    <div class="value">${winRateToday}%</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--green);">
+                    <div class="title" style="color: var(--green);">معاملات امروز</div>
+                    <div class="value">${validCountToday}</div>
+                </div>
+            `;
+
+            // تابع کمکی برای ساخت کارت‌های موتور
+            const buildEngineCard = (e, idx, isToday = false) => {
+                const wr = e.n > 0 ? ((e.wins / e.n) * 100).toFixed(1) : 0;
+                const pClass = e.pct >= 0 ? 'profit' : 'loss';
+                const pSign = e.pct >= 0 ? '+' : '';
+                const colorClass = idx === 1 ? 'eng1-color' : idx === 2 ? 'eng2-color' : 'eng3-color';
+                const borderClass = idx === 1 ? 'card-e1' : idx === 2 ? 'card-e2' : 'card-e3';
+                
                 return `
-                    <div class="stat-card" style="${borderStyle}">
-                        <div class="title" style="${titleColor}">سود کل</div>
-                        <div class="value ${profit >= 0 ? 'profit' : 'loss'}">${profit >= 0 ? '+' : ''}${profit.toFixed(2)}%</div>
-                    </div>
-                    <div class="stat-card" style="${borderStyle}">
-                        <div class="title" style="${titleColor}">وین‌ریت</div>
-                        <div class="value">${winRate}%</div>
-                    </div>
-                    <div class="stat-card" style="${borderStyle}">
-                        <div class="title" style="${titleColor}">کل معاملات</div>
-                        <div class="value">${count}</div>
+                    <div class="engine-card ${borderClass}">
+                        <div class="eng-title ${colorClass}">${isToday ? '📅 ' : ''}${e.name}</div>
+                        <div class="eng-row"><span>تعداد:</span> <b>${e.n}</b></div>
+                        <div class="eng-row"><span>وین‌ریت:</span> <b>${wr}%</b></div>
+                        <div class="eng-row"><span>سود:</span> <b class="${pClass}">${pSign}${e.pct.toFixed(2)}%</b></div>
                     </div>
                 `;
             };
 
-            // رندر بخش ۱۰ روزه
-            const winRate10d = validCount10d > 0 ? (wins10d / validCount10d * 100).toFixed(1) : 0;
-            statsGrid10d.innerHTML = buildTotalCards(totalProfit10d, winRate10d, validCount10d);
-            engineStatsGrid10d.innerHTML = buildEngineCards(engines10d);
-
-            // رندر بخش امروز
-            const winRateToday = validCountToday > 0 ? (winsToday / validCountToday * 100).toFixed(1) : 0;
-            statsGridToday.innerHTML = buildTotalCards(totalProfitToday, winRateToday, validCountToday, true);
-            engineStatsGridToday.innerHTML = buildEngineCards(enginesToday);
+            // رندر ۶ کارت موتور (سمت راست ۱۰ روز، سمت چپ امروز)
+            engineStatsGrid.innerHTML = `
+                ${buildEngineCard(engines10d["ENGINE_1_SMC"], 1)}
+                ${buildEngineCard(engines10d["ENGINE_2_MTF_V8"], 2)}
+                ${buildEngineCard(engines10d["ENGINE_3_TRENDLINE"], 3)}
+                ${buildEngineCard(enginesToday["ENGINE_1_SMC"], 1, true)}
+                ${buildEngineCard(enginesToday["ENGINE_2_MTF_V8"], 2, true)}
+                ${buildEngineCard(enginesToday["ENGINE_3_TRENDLINE"], 3, true)}
+            `;
 
             // رندر جدول (همان کد قبلی)
             const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
